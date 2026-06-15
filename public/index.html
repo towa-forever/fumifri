@@ -667,6 +667,38 @@ if('serviceWorker' in navigator){
 
 const VAPID_PUB = 'BIGF-lxkipVWSDRM9U_a3JgFG2aeItqcgE4P3Ol4MdEmEIUlLnINTWvKc0X0I6PJDMc8lNX93pZbanaxMMgI7QE';
 
+async function updateNotifBtn(){
+  const btn = document.getElementById('notif-btn');
+  if(!btn) return;
+  if(!('Notification' in window)){btn.style.display='none';return;}
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if(sub){
+    btn.innerHTML = '<i class="ti ti-bell-off"></i> 通知をオフにする';
+    btn.onclick = unsubscribePush;
+  } else {
+    btn.innerHTML = '<i class="ti ti-bell"></i> 新着通知をオンにする';
+    btn.onclick = subscribePush;
+  }
+}
+
+async function unsubscribePush(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){
+      await fetch('/api/unsubscribe', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({endpoint: sub.endpoint})
+      });
+      await sub.unsubscribe();
+    }
+    toast('通知をオフにしました');
+    updateNotifBtn();
+  }catch(e){toast('エラー: '+e.message);}
+}
+
 function urlBase64ToUint8Array(base64String){
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g,"+").replace(/_/g,"/");
