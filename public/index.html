@@ -379,6 +379,22 @@ function cardHTML(p){
   </div>`;
 }
 
+function updateBadge(){
+  const lastCount = parseInt(localStorage.getItem('fumifri_lastCount')||'0');
+  const currentCount = products.length;
+  const homeTab = document.querySelector('[data-tab="home"]');
+  if(currentCount > lastCount && lastCount > 0){
+    homeTab.innerHTML = '🏠 ホーム <span style="background:#e04060;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;margin-left:2px">' + (currentCount - lastCount) + '</span>';
+  } else {
+    homeTab.innerHTML = '🏠 ホーム';
+  }
+}
+
+function clearBadge(){
+  localStorage.setItem('fumifri_lastCount', products.length);
+  document.querySelector('[data-tab="home"]').innerHTML = '🏠 ホーム';
+}
+
 function renderFiltered(){
   const g = $('product-grid');
   const items = getFiltered();
@@ -390,6 +406,7 @@ async function loadProducts(){
     products = await api('GET', '/products');
     renderFiltered();
     renderHoshii();
+    updateBadge();
   }catch(e){ $('product-grid').innerHTML = '<div class="empty"><i class="ti ti-wifi-off"></i><p>読み込みに失敗しました</p></div>'; }
 }
 
@@ -652,6 +669,7 @@ document.querySelectorAll('.tab').forEach(t => {
     $('tab-'+t.dataset.tab).classList.add('active');
     if(t.dataset.tab==='hoshii') renderHoshii();
     if(t.dataset.tab==='profile'){ renderProfile(); setTimeout(updateNotifBtn, 100); }
+    if(t.dataset.tab==='home') clearBadge();
   };
 });
 
