@@ -1,4 +1,11 @@
 const express = require('express');
+const webpush = require('web-push');
+
+webpush.setVapidDetails(
+  process.env.VAPID_EMAIL,
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
@@ -37,6 +44,9 @@ const productSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+
+const subSchema = new mongoose.Schema({ endpoint: String, keys: Object });
+const Sub = mongoose.model('Sub', subSchema);
 const Product = mongoose.model('Product', productSchema);
 
 app.post('/api/register', async (req, res) => {
@@ -58,6 +68,12 @@ app.post('/api/login', async (req, res) => {
   res.json({ name: user.name, emoji: user.emoji, bio: user.bio });
 });
 
+app.post('/api/subscribe', async (req, res) => {
+  const { endpoint, keys } = req.body;
+  await Sub.findOneAndUpdate({ endpoint }, { endpoint, keys }, { upsert: true });
+  res.json({ ok: true });
+});
+
 app.get('/api/products', async (req, res) => {
   const products = await Product.find().sort({ createdAt: -1 }).lean();
   res.json(products);
@@ -67,6 +83,9 @@ app.post('/api/products', async (req, res) => {
   const { name, cat, cond, desc, price, neg, emoji, img, owner } = req.body;
   if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
   const p = await Product.create({ name, cat, cond, desc, price, neg, emoji, img, owner });
+  const subs = await Sub.find();
+  const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
+  subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
   res.json(p);
 });
 

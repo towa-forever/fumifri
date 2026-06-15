@@ -425,6 +425,7 @@ function renderProfile(){
           </div>
         </div>`).join('') : '<p style="font-size:13px;color:#bbb">まだ出品していません</p>'}
     </div>
+    <button class="act-btn" style="width:100%;justify-content:center;margin-bottom:8px" onclick="subscribePush()"><i class="ti ti-bell"></i> 新着通知をオンにする</button>
     <button class="logout-btn" onclick="logout()">ログアウト</button>
   </div>`;
 }
@@ -660,7 +661,24 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // PWA service worker (inline blob)
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+  window.swReg = reg;
+}).catch(()=>{});
+
+const VAPID_PUB = 'BIGF-lxkipVWSDRM9U_a3JgFG2aeItqcgE4P3Ol4MdEmEIUlLnINTWvKc0X0I6PJDMc8lNX93pZbanaxMMgI7QE';
+
+async function subscribePush(){
+  if(!('Notification' in window)){toast('このブラウザは通知非対応です');return;}
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted'){toast('通知が拒否されました');return;}
+  const reg = window.swReg || await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: VAPID_PUB
+  });
+  await api('POST', '/subscribe', sub.toJSON());
+  toast('通知をオンにしました！');
+}
 }
 
 // 起動
@@ -668,6 +686,8 @@ if(!session) openAuth(false);
 applySession();
 renderCats();
 loadProducts();
+setInterval(loadProducts, 30000);
+setInterval(loadProducts, 30000);
 </script>
 </body>
 </html>
