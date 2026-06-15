@@ -651,7 +651,7 @@ document.querySelectorAll('.tab').forEach(t => {
     t.classList.add('active');
     $('tab-'+t.dataset.tab).classList.add('active');
     if(t.dataset.tab==='hoshii') renderHoshii();
-    if(t.dataset.tab==='profile') renderProfile();
+    if(t.dataset.tab==='profile'){ renderProfile(); setTimeout(updateNotifBtn, 100); }
   };
 });
 
