@@ -8,9 +8,14 @@
   "theme_color": "#8B6914",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%238B6914'/><text y='145' x='20' font-size='140'>✏️</text></svg>",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }
