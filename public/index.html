@@ -425,7 +425,7 @@ function renderProfile(){
           </div>
         </div>`).join('') : '<p style="font-size:13px;color:#bbb">まだ出品していません</p>'}
     </div>
-    <button class="act-btn" style="width:100%;justify-content:center;margin-bottom:8px" onclick="subscribePush()"><i class="ti ti-bell"></i> 新着通知をオンにする</button>
+    <button id="notif-btn" class="act-btn" style="width:100%;justify-content:center;margin-bottom:8px"><i class="ti ti-bell"></i> 新着通知をオンにする</button>
     <button class="logout-btn" onclick="logout()">ログアウト</button>
   </div>`;
 }
