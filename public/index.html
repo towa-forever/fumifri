@@ -671,7 +671,7 @@ async function subscribePush(){
   if(!('Notification' in window)){toast('このブラウザは通知非対応です');return;}
   const perm = await Notification.requestPermission();
   if(perm !== 'granted'){toast('通知が拒否されました');return;}
-  const reg = window.swReg || await navigator.serviceWorker.ready;
+  const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: VAPID_PUB
