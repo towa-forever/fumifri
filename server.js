@@ -16,7 +16,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(async () => { console.log('MongoDB connected'); await User.syncIndexes(); })
   .catch(err => console.error(err));
 
 const userSchema = new mongoose.Schema({
