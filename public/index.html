@@ -79,7 +79,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .emoji-opt{font-size:22px;cursor:pointer;padding:4px 6px;border-radius:6px;border:2px solid transparent;line-height:1}
 .emoji-opt.sel{border-color:var(--cr);background:var(--crl)}
 .detail-img{width:100%;height:200px;background:var(--crl);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:64px;overflow:hidden;margin-bottom:14px}
-.detail-img img{width:100%;height:100%;object-fit:cover}
+.detail-img img{width:100%;height:100%;object-fit:contain;background:#fafafa}
 .detail-name{font-size:18px;font-weight:700;margin-bottom:4px}
 .detail-price{font-size:22px;font-weight:700;color:var(--cr);margin:8px 0}
 .detail-desc{font-size:14px;color:#555;line-height:1.7;margin:8px 0 10px;white-space:pre-wrap}
@@ -194,11 +194,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
     </div>
     <div class="fr">
       <label>商品画像（任意）</label>
-      <div class="img-upload-area" id="img-upload-area">
-        <input type="file" id="f-img" accept="image/*" onchange="onImgChange(this)">
-        <i class="ti ti-camera-plus" id="img-ph-icon"></i>
-        <span id="img-ph-text">タップして画像を追加</span>
-      </div>
+      <div id="img-preview-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div><div class="img-upload-area" id="img-upload-area" style="height:80px"><input type="file" id="f-img" accept="image/*" multiple onchange="onImgChange(this)"><i class="ti ti-camera-plus" id="img-ph-icon"></i><span id="img-ph-text">タップして画像を追加（最大5枚）</span></div>
     </div>
     <div class="fr">
       <label>アイコン（画像なし時に表示）</label>
@@ -270,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 </div>
 
 <script>
-const CATS = ['全て','ペン・マーカー','ノート・紙','消しゴム・修正','ハサミ・テープ','スタンプ・シール','ファイル・バインダー','その他'];
+const CATS = ['全て','シャーペン','ボールペン・他','ノート・紙','消しゴム・修正','ハサミ・テープ','スタンプ・シール','ファイル・バインダー','ペンケース','その他'];
 const EMOJIS = ['✏️','🖊️','🖋️','📝','📒','📔','📓','📏','📐','✂️','📌','🖇️','🗂️','📎','🖍️'];
 const VAPID_PUB = 'BP9EY021Qvgg721Wh9E_bzRB1tkO240PEuP9ul-Rnf7L0ehtChvySNB-4OKoca3gR7-8YotVSPfweMU2I9yAQ_A';
 
@@ -281,7 +277,6 @@ let editId = null;
 let selEmoji = EMOJIS[0];
 let negOn = false;
 let soldOn = false;
-let pendingImg = null;
 
 const $ = id => document.getElementById(id);
 
@@ -326,29 +321,33 @@ function compressImage(file, maxPx=800, quality=0.75){
     reader.readAsDataURL(file);
   });
 }
+let pendingImgs = [];
 function onImgChange(input){
-  const file = input.files[0];
-  if(!file) return;
-  compressImage(file).then(b64 => { pendingImg = b64; renderImgPreview(b64); });
+  const files = Array.from(input.files);
+  if(!files.length) return;
+  const remaining = 5 - pendingImgs.length;
+  if(remaining <= 0){ toast('画像は最大5枚です'); return; }
+  files.slice(0, remaining).forEach(file => {
+    compressImage(file).then(b64 => { pendingImgs.push(b64); renderImgPreview(); });
+  });
 }
-function renderImgPreview(b64){
-  const area = $('img-upload-area');
-  area.querySelector('img.preview')?.remove();
-  area.querySelector('.img-clear')?.remove();
-  if(b64){
+function renderImgPreview(){
+  const row = $('img-preview-row');
+  if(!row) return;
+  row.innerHTML = '';
+  pendingImgs.forEach((b64, i) => {
+    const wrap = document.createElement('div');
+    wrap.style = 'position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0';
     const img = document.createElement('img');
-    img.className = 'preview'; img.src = b64;
-    area.appendChild(img);
+    img.src = b64; img.style = 'width:100%;height:100%;object-fit:contain;background:#fafafa';
     const btn = document.createElement('button');
-    btn.className = 'img-clear'; btn.type = 'button'; btn.textContent = '×';
-    btn.onclick = e => { e.stopPropagation(); pendingImg = null; $('f-img').value = ''; renderImgPreview(null); };
-    area.appendChild(btn);
-    $('img-ph-icon').style.display = 'none';
-    $('img-ph-text').style.display = 'none';
-  } else {
-    $('img-ph-icon').style.display = '';
-    $('img-ph-text').style.display = '';
-  }
+    btn.type = 'button'; btn.textContent = '×';
+    btn.style = 'position:absolute;top:2px;right:2px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px';
+    btn.onclick = () => { pendingImgs.splice(i,1); renderImgPreview(); };
+    wrap.appendChild(img); wrap.appendChild(btn);
+    row.appendChild(wrap);
+  });
+  $('img-ph-text').textContent = pendingImgs.length >= 5 ? '上限（5枚）に達しました' : 'タップして画像を追加（最大5枚）';
 }
 
 // ---- カテゴリ ----
@@ -669,13 +668,13 @@ $('t-sold').onclick = () => { soldOn=!soldOn; $('t-sold').className='toggle'+(so
 
 $('add-btn').onclick = () => {
   if(!session){ openAuth(); return; }
-  editId=null; selEmoji=EMOJIS[0]; negOn=false; soldOn=false; pendingImg=null;
+  editId=null; selEmoji=EMOJIS[0]; negOn=false; soldOn=false; pendingImgs=[];
   $('form-title').textContent='商品を登録';
   $('f-name').value=''; $('f-desc').value=''; $('f-price').value='';
   $('form-save').textContent='登録する';
   $('form-delete').style.display='none';
   $('sold-row').style.display='none';
-  $('f-img').value=''; renderImgPreview(null);
+  $('f-img').value=''; pendingImgs=[]; renderImgPreview();
   setupForm(); $('add-modal').classList.add('open');
 };
 
@@ -683,13 +682,13 @@ function openEdit(id){
   closeModal('detail-modal-bg');
   const p = products.find(x=>x._id===id);
   if(!p) return;
-  editId=id; selEmoji=p.emoji||EMOJIS[0]; negOn=p.neg; soldOn=p.sold; pendingImg=p.img||null;
+  editId=id; selEmoji=p.emoji||EMOJIS[0]; negOn=p.neg; soldOn=p.sold; pendingImgs=p.img?[p.img]:[];
   $('form-title').textContent='商品を編集';
   $('f-name').value=p.name; $('f-desc').value=p.desc; $('f-price').value=p.price;
   $('form-save').textContent='保存する';
   $('form-delete').style.display='block';
   $('sold-row').style.display='flex';
-  $('f-img').value=''; renderImgPreview(pendingImg);
+  $('f-img').value=''; renderImgPreview();
   setupForm();
   setTimeout(()=>{ $('f-cat').value=p.cat; $('f-cond').value=p.cond; },50);
   $('add-modal').classList.add('open');
@@ -700,7 +699,7 @@ $('form-save').onclick = async () => {
   const price = parseInt($('f-price').value);
   if(!name){ toast('商品名を入力してください'); return; }
   if(!price||price<0){ toast('価格を入力してください'); return; }
-  const data = {name,cat:$('f-cat').value,cond:$('f-cond').value,desc:$('f-desc').value.trim(),price,neg:negOn,emoji:selEmoji,img:pendingImg};
+  const data = {name,cat:$('f-cat').value,cond:$('f-cond').value,desc:$('f-desc').value.trim(),price,neg:negOn,emoji:selEmoji,img:pendingImgs[0]||null,imgs:pendingImgs};
   try{
     if(editId){
       const updated = await api('PUT', `/products/${editId}`, {...data,sold:soldOn,requester:session.name});
