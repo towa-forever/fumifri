@@ -216,6 +216,61 @@ app.post('/api/contracts/:id/sign', async (req, res) => {
   await c.save();
   res.json(c);
 });
+// クーポンスキーマ
+const couponSchema = new mongoose.Schema({
+  code: { type: String, required: true, unique: true },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
+  owner: { type: String, required: true },
+  type: { type: String, enum: ['amount', 'percent'], default: 'amount' },
+  value: { type: Number, required: true },
+  expiry: { type: String, default: '' },
+  usedBy: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+const Coupon = mongoose.model('Coupon', couponSchema);
+
+// クーポン発行
+app.post('/api/coupons', async (req, res) => {
+  const { code, productId, owner, type, value, expiry } = req.body;
+  if (!code || !owner || !value) return res.status(400).json({ error: '必須項目が足りません' });
+  try {
+    const coupon = await Coupon.create({ code, productId: productId || null, owner, type, value, expiry });
+    res.json(coupon);
+  } catch(e) {
+    if (e.code === 11000) return res.status(400).json({ error: 'そのコードはすでに使われています' });
+    res.status(500).json({ error: 'サーバーエラー' });
+  }
+});
+
+// クーポン確認・適用
+app.post('/api/coupons/apply', async (req, res) => {
+  const { code, productId, user } = req.body;
+  const coupon = await Coupon.findOne({ code });
+  if (!coupon) return res.status(404).json({ error: 'クーポンが見つかりません' });
+  if (coupon.expiry && new Date() > new Date(coupon.expiry)) return res.status(400).json({ error: 'クーポンの有効期限が切れています' });
+  if (coupon.usedBy.includes(user)) return res.status(400).json({ error: 'このクーポンはすでに使用済みです' });
+  if (coupon.productId && coupon.productId.toString() !== productId) return res.status(400).json({ error: 'この商品には使えないクーポンです' });
+  coupon.usedBy.push(user);
+  await coupon.save();
+  res.json({ type: coupon.type, value: coupon.value });
+});
+
+// 自分のクーポン一覧
+app.get('/api/coupons', async (req, res) => {
+  const { owner } = req.query;
+  const coupons = await Coupon.find({ owner }).sort({ createdAt: -1 });
+  res.json(coupons);
+});
+
+// クーポン削除
+app.delete('/api/coupons/:id', async (req, res) => {
+  const { requester } = req.body;
+  const c = await Coupon.findById(req.params.id);
+  if (!c) return res.status(404).json({ error: 'クーポンが見つかりません' });
+  if (c.owner !== requester) return res.status(403).json({ error: '権限がありません' });
+  await c.deleteOne();
+  res.json({ ok: true });
+});
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

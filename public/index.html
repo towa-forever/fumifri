@@ -242,6 +242,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 </div>
 
 <!-- 商品詳細 -->
+<div class="modal-bg" id="coupon-manager-modal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2>🎟️ クーポン管理</h2>
+      <button class="close-btn" onclick="closeModal('coupon-manager-modal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="coupon-manager-content"></div>
+  </div>
+</div>
 <div class="modal-bg" id="contract-modal">
   <div class="modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -598,6 +607,16 @@ function openDetail(id){
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
+    ${!p.sold && session && p.owner !== session.name ? `
+    <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:12px">
+      <p style="font-size:13px;font-weight:700;margin-bottom:8px">🎟️ クーポンを使う</p>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="coupon-input" class="inp" placeholder="クーポンコード" style="margin:0;flex:1">
+        <button class="btn-p" style="padding:8px 12px;white-space:nowrap" onclick="applyCoupon('${p._id}',${p.price})">適用</button>
+      </div>
+      <button style="width:100%;padding:8px;background:#f3f0ff;color:#7c3aed;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" onclick="applyAICoupon('${p._id}','${p.name}',${p.price})">🤖 AIクーポンを生成</button>
+      <div id="coupon-result" style="margin-top:6px;font-size:13px"></div>
+    </div>` : ''}
     <div class="cmt-section">
       <h3><i class="ti ti-message-circle" style="font-size:14px;vertical-align:-2px"></i> コメント（${p.comments.length}）</h3>
       ${p.comments.length
@@ -951,6 +970,112 @@ async function loadContracts() {
       <p style="font-size:12px;margin-top:4px">${c.sellerSigned && c.buyerSigned ? '✅ 契約成立' : '⏳ サイン待ち'}</p>
     </div>
   `).join('');
+}
+
+
+// ---- クーポン ----
+let appliedCoupon = null;
+
+async function applyCoupon(productId, price) {
+  const code = document.getElementById('coupon-input').value.trim();
+  if (!code) return toast('クーポンコードを入力してください');
+  const res = await fetch('/api/coupons/apply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, productId, user: loginUser })
+  }).then(r => r.json());
+  if (res.error) return toast(res.error);
+  appliedCoupon = res;
+  const disc = res.type === 'percent' ? Math.floor(price * res.value / 100) : res.value;
+  const after = Math.max(0, price - disc);
+  document.getElementById('coupon-result').innerHTML =
+    `<span style="color:green;font-weight:700">✅ -${res.type==='percent'?res.value+'%':res.value+'円'} 適用！ → ¥${after.toLocaleString()}</span>`;
+}
+
+async function applyAICoupon(productId, productName, price) {
+  const el = document.getElementById('coupon-result');
+  el.innerHTML = '<span style="color:#999">AIがクーポンを生成中...</span>';
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: `文房具フリマアプリで「${productName}」が¥${price}で売られています。購入者へのお得なクーポン割引をJSON形式だけで答えてください。例: {"type":"percent","value":10,"reason":"初回購入特典"} typeはamount(円引き)かpercent(%OFF)、valueは数字のみ。`
+        }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const coupon = JSON.parse(text);
+    appliedCoupon = coupon;
+    const disc = coupon.type === 'percent' ? Math.floor(price * coupon.value / 100) : coupon.value;
+    const after = Math.max(0, price - disc);
+    el.innerHTML = `<span style="color:green;font-weight:700">🤖 AIクーポン適用！${coupon.reason || ''} -${coupon.type==='percent'?coupon.value+'%':coupon.value+'円'} → ¥${after.toLocaleString()}</span>`;
+  } catch(e) {
+    el.innerHTML = '<span style="color:red">AIクーポンの生成に失敗しました</span>';
+  }
+}
+
+async function openCouponManager() {
+  if (!loginUser) return openAuth();
+  const coupons = await fetch('/api/coupons?owner=' + loginUser).then(r => r.json());
+  const content = document.getElementById('coupon-manager-content');
+  content.innerHTML = `
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">新しいクーポンを発行</h3>
+    <input id="new-coupon-code" class="inp" placeholder="クーポンコード（例: SALE10）">
+    <select id="new-coupon-type" class="inp" style="margin-top:6px">
+      <option value="amount">円引き</option>
+      <option value="percent">%OFF</option>
+    </select>
+    <input id="new-coupon-value" class="inp" type="number" placeholder="割引額（例: 100 or 10）" style="margin-top:6px">
+    <input id="new-coupon-expiry" class="inp" type="date" style="margin-top:6px">
+    <button class="btn-p" style="width:100%;margin-top:8px" onclick="issueCoupon()">発行する</button>
+    <hr style="margin:14px 0">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">発行済みクーポン</h3>
+    ${coupons.length === 0 ? '<p style="color:#999;font-size:13px">まだクーポンはありません</p>' :
+      coupons.map(c => `
+        <div style="background:#fafafa;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <p style="font-weight:700;font-size:14px">🎟️ ${c.code}</p>
+            <p style="font-size:12px;color:#999">${c.type==='percent'?c.value+'%OFF':c.value+'円引き'} ${c.expiry?'期限:'+c.expiry:''}</p>
+            <p style="font-size:12px;color:#999">使用済み: ${c.usedBy.length}人</p>
+          </div>
+          <button style="background:none;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:#e04060" onclick="deleteCoupon('${c._id}')">削除</button>
+        </div>`).join('')}
+  `;
+  document.getElementById('coupon-manager-modal').classList.add('open');
+}
+
+async function issueCoupon() {
+  const code = document.getElementById('new-coupon-code').value.trim();
+  const type = document.getElementById('new-coupon-type').value;
+  const value = parseInt(document.getElementById('new-coupon-value').value);
+  const expiry = document.getElementById('new-coupon-expiry').value;
+  if (!code || !value) return toast('コードと割引額を入力してください');
+  const res = await fetch('/api/coupons', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, owner: loginUser, type, value, expiry })
+  }).then(r => r.json());
+  if (res.error) return toast(res.error);
+  toast('クーポンを発行しました！');
+  openCouponManager();
+}
+
+async function deleteCoupon(id) {
+  if (!confirm('このクーポンを削除しますか？')) return;
+  const res = await fetch('/api/coupons/' + id, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: loginUser })
+  }).then(r => r.json());
+  if (res.error) return toast(res.error);
+  toast('削除しました');
+  openCouponManager();
 }
 
 </script>
