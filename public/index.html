@@ -631,6 +631,23 @@ function openDetail(id){
     </div>`;
   $('detail-modal-bg').classList.add('open');
   initSlider();
+  // コード不要クーポンを自動チェック
+  autoApplyCoupon(id);
+}
+
+async function autoApplyCoupon(productId) {
+  if (!loginUser) return;
+  const p = products.find(x => x._id === productId);
+  if (!p || p.owner === loginUser || p.sold) return;
+  try {
+    const res = await fetch('/api/coupons/auto?productId=' + productId + '&user=' + loginUser).then(r => r.json());
+    if (res.error || !res.value) return;
+    appliedCoupon = res;
+    const disc = res.type === 'percent' ? Math.floor(p.price * res.value / 100) : res.value;
+    const after = Math.max(0, p.price - disc);
+    const el = document.getElementById('coupon-result');
+    if (el) el.innerHTML = `<span style="color:green;font-weight:700">🎉 自動クーポン適用！-${res.type==='percent'?res.value+'%':res.value+'円'} → ¥${after.toLocaleString()}</span>`;
+  } catch(e) {}
 }
 
 async function toggleHoshiiD(id){
@@ -1052,6 +1069,15 @@ async function openCouponManager() {
     </select>
     <input id="new-coupon-value" class="inp" type="number" placeholder="割引額（例: 100 or 10）" style="margin-top:6px">
     <input id="new-coupon-expiry" class="inp" type="date" style="margin-top:6px">
+    <div style="margin-top:10px;padding:10px;background:#f8f8f8;border-radius:10px">
+      <p style="font-size:13px;font-weight:700;margin-bottom:8px">クーポンの使い方</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer">
+        <input type="radio" name="require-code" value="true" checked> コードを教えた人だけ使える
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+        <input type="radio" name="require-code" value="false"> コード不要（商品を見た人に自動適用）
+      </label>
+    </div>
     <button class="btn-p" style="width:100%;margin-top:8px" onclick="issueCoupon()">発行する</button>
     <hr style="margin:14px 0">
     <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">発行済みクーポン</h3>
@@ -1080,7 +1106,7 @@ async function issueCoupon() {
   const res = await fetch('/api/coupons', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, productId, owner: loginUser, type, value, expiry })
+    body: JSON.stringify({ code, productId, owner: loginUser, type, value, expiry, requireCode: document.querySelector('input[name="require-code"]:checked').value === 'true' })
   }).then(r => r.json());
   if (res.error) return toast(res.error);
   toast('クーポンを発行しました！');

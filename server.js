@@ -225,6 +225,7 @@ const couponSchema = new mongoose.Schema({
   value: { type: Number, required: true },
   expiry: { type: String, default: '' },
   usedBy: { type: [String], default: [] },
+  requireCode: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
 const Coupon = mongoose.model('Coupon', couponSchema);
@@ -243,6 +244,17 @@ app.post('/api/coupons', async (req, res) => {
 });
 
 // クーポン確認・適用
+app.get('/api/coupons/auto', async (req, res) => {
+  const { productId, user } = req.query;
+  const coupon = await Coupon.findOne({ productId, requireCode: false });
+  if (!coupon) return res.json({});
+  if (coupon.expiry && new Date() > new Date(coupon.expiry)) return res.json({});
+  if (coupon.usedBy.includes(user)) return res.json({});
+  coupon.usedBy.push(user);
+  await coupon.save();
+  res.json({ type: coupon.type, value: coupon.value });
+});
+
 app.post('/api/coupons/apply', async (req, res) => {
   const { code, productId, user } = req.body;
   const coupon = await Coupon.findOne({ code });
