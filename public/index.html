@@ -802,7 +802,22 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // ---- Service Worker ----
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').catch(e => console.error('SW error:', e));
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // 1分ごとに更新チェック
+    setInterval(() => reg.update(), 60000);
+    // 新しいSWが待機中になったら即適用
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if(newSW.state === 'installed' && navigator.serviceWorker.controller){
+          newSW.postMessage({ type: 'SKIP_WAITING' });
+          window.location.reload();
+        }
+      });
+    });
+  }).catch(e => console.error('SW error:', e));
+  // コントローラーが変わったらリロード
+  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
 }
 
 // ---- 起動 ----

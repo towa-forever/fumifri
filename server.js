@@ -271,6 +271,8 @@ app.delete('/api/coupons/:id', async (req, res) => {
   await c.deleteOne();
   res.json({ ok: true });
 });
+app.get('/api/version', (req, res) => res.json({ v: Date.now() }));
+
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
