@@ -24,7 +24,10 @@ const userSchema = new mongoose.Schema({
   pass: { type: String, required: true },
   emoji: { type: String, default: '✏️' },
   bio: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  isAuction: { type: Boolean, default: false },
+  auctionEnd: { type: String, default: null },
+  buyer: { type: String, default: null }
 });
 
 const productSchema = new mongoose.Schema({
@@ -129,6 +132,90 @@ app.post('/api/products/:id/comments', async (req, res) => {
   res.json(p.comments);
 });
 
+const bidSchema = new mongoose.Schema({
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  user: { type: String, required: true },
+  amount: { type: Number, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const Bid = mongoose.model('Bid', bidSchema);
+
+const contractSchema = new mongoose.Schema({
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  productName: { type: String, required: true },
+  price: { type: Number, required: true },
+  seller: { type: String, required: true },
+  buyer: { type: String, default: '' },
+  paymentDate: { type: String, default: '' },
+  handoverDate: { type: String, default: '' },
+  handoverPlace: { type: String, default: '' },
+  memo: { type: String, default: '' },
+  sellerSign: { type: String, default: '' },
+  buyerSign: { type: String, default: '' },
+  sellerSigned: { type: Boolean, default: false },
+  buyerSigned: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+const Contract = mongoose.model('Contract', contractSchema);
+
+app.post('/api/products/:id/select-buyer', async (req, res) => {
+  const { buyer, requester } = req.body;
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  if (p.owner !== requester) return res.status(403).json({ error: '権限がありません' });
+  p.buyer = buyer;
+  p.sold = true;
+  await p.save();
+  res.json({ ok: true, buyer });
+});
+
+app.post('/api/products/:id/bid', async (req, res) => {
+  const { user, amount } = req.body;
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  if (!p.isAuction) return res.status(400).json({ error: 'オークション商品ではありません' });
+  if (p.auctionEnd && new Date() > new Date(p.auctionEnd)) return res.status(400).json({ error: 'オークション終了済み' });
+  const topBid = await Bid.findOne({ productId: req.params.id }).sort({ amount: -1 });
+  if (topBid && amount <= topBid.amount) return res.status(400).json({ error: '現在の最高額より高い金額を入力してください' });
+  const bid = await Bid.create({ productId: req.params.id, user, amount });
+  res.json(bid);
+});
+
+app.get('/api/products/:id/bids', async (req, res) => {
+  const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
+  res.json(bids);
+});
+
+app.post('/api/contracts', async (req, res) => {
+  const { productId, seller, buyer, paymentDate, handoverDate, handoverPlace, memo } = req.body;
+  const p = await Product.findById(productId);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  const contract = await Contract.create({ productId, productName: p.name, price: p.price, seller, buyer, paymentDate, handoverDate, handoverPlace, memo });
+  res.json(contract);
+});
+
+app.get('/api/contracts/:id', async (req, res) => {
+  const c = await Contract.findById(req.params.id);
+  if (!c) return res.status(404).json({ error: '契約書が見つかりません' });
+  res.json(c);
+});
+
+app.get('/api/contracts', async (req, res) => {
+  const { user } = req.query;
+  const contracts = await Contract.find({ $or: [{ seller: user }, { buyer: user }] }).sort({ createdAt: -1 });
+  res.json(contracts);
+});
+
+app.post('/api/contracts/:id/sign', async (req, res) => {
+  const { user, sign } = req.body;
+  const c = await Contract.findById(req.params.id);
+  if (!c) return res.status(404).json({ error: '契約書が見つかりません' });
+  if (c.seller === user) { c.sellerSign = sign; c.sellerSigned = true; }
+  else if (c.buyer === user) { c.buyerSign = sign; c.buyerSigned = true; }
+  else return res.status(403).json({ error: '権限がありません' });
+  await c.save();
+  res.json(c);
+});
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
