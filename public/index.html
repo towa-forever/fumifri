@@ -607,7 +607,7 @@ function openDetail(id){
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
-    ${!p.sold && session && p.owner !== session.name ? `
+    ${!p.sold && session && session.name !== p.owner ? `
     <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:12px">
       <p style="font-size:13px;font-weight:700;margin-bottom:8px">🎟️ クーポンを使う</p>
       <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -1041,6 +1041,10 @@ async function openCouponManager() {
   const content = document.getElementById('coupon-manager-content');
   content.innerHTML = `
     <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">新しいクーポンを発行</h3>
+    <select id="new-coupon-product" class="inp" style="margin-bottom:6px">
+      <option value="">商品を選んでください</option>
+      ${products.filter(p=>p.owner===loginUser&&!p.sold).map(p=>`<option value="${p._id}">${p.emoji||'📦'} ${p.name} ¥${p.price.toLocaleString()}</option>`).join('')}
+    </select>
     <input id="new-coupon-code" class="inp" placeholder="クーポンコード（例: SALE10）">
     <select id="new-coupon-type" class="inp" style="margin-top:6px">
       <option value="amount">円引き</option>
@@ -1066,15 +1070,17 @@ async function openCouponManager() {
 }
 
 async function issueCoupon() {
+  const productId = document.getElementById('new-coupon-product').value;
   const code = document.getElementById('new-coupon-code').value.trim();
   const type = document.getElementById('new-coupon-type').value;
   const value = parseInt(document.getElementById('new-coupon-value').value);
   const expiry = document.getElementById('new-coupon-expiry').value;
+  if (!productId) return toast('商品を選んでください');
   if (!code || !value) return toast('コードと割引額を入力してください');
   const res = await fetch('/api/coupons', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, owner: loginUser, type, value, expiry })
+    body: JSON.stringify({ code, productId, owner: loginUser, type, value, expiry })
   }).then(r => r.json());
   if (res.error) return toast(res.error);
   toast('クーポンを発行しました！');
