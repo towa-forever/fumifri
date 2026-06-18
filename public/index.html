@@ -350,6 +350,29 @@ function renderImgPreview(){
   $('img-ph-text').textContent = pendingImgs.length >= 5 ? '上限（5枚）に達しました' : 'タップして画像を追加（最大5枚）';
 }
 
+
+// ---- スライダー ----
+function initSlider(){
+  const slider = document.getElementById('detail-img-slider');
+  const inner = document.getElementById('slider-inner');
+  if(!slider||!inner) return;
+  const imgs = inner.querySelectorAll('img');
+  if(imgs.length<=1) return;
+  let cur=0, startX=0, isDragging=false;
+  const go = (i) => {
+    cur = Math.max(0, Math.min(imgs.length-1, i));
+    inner.style.transform = `translateX(-${cur*100}%)`;
+    document.querySelectorAll('.sdot').forEach((d,j)=>d.style.background=j===cur?'var(--cr)':'#ccc');
+  };
+  document.querySelectorAll('.sdot').forEach(d=>d.onclick=()=>go(parseInt(d.dataset.i)));
+  slider.addEventListener('touchstart', e=>{ startX=e.touches[0].clientX; isDragging=true; },{passive:true});
+  slider.addEventListener('touchend', e=>{
+    if(!isDragging) return;
+    const diff = startX - e.changedTouches[0].clientX;
+    if(Math.abs(diff)>40) go(diff>0?cur+1:cur-1);
+    isDragging=false;
+  },{passive:true});
+}
 // ---- カテゴリ ----
 function renderCats(){
   const r = $('cat-row');
@@ -544,7 +567,19 @@ function openDetail(id){
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button class="close-btn" onclick="closeModal('detail-modal-bg')"><i class="ti ti-x"></i></button>
     </div>
-    <div class="detail-img">${p.img?`<img src="${p.img}" alt="">`:p.emoji||'📦'}</div>
+    <div class="detail-img" id="detail-img-slider" style="position:relative">
+      ${(p.imgs&&p.imgs.length>0?p.imgs:[p.img]).filter(Boolean).length>0
+        ? `<div id="slider-inner" style="display:flex;width:100%;height:100%;transition:transform .3s;touch-action:pan-y">
+            ${(p.imgs&&p.imgs.length>0?p.imgs:[p.img]).filter(Boolean).map(src=>`<img src="${src}" alt="" style="min-width:100%;height:100%;object-fit:contain;background:#fafafa">`).join('')}
+           </div>
+           ${(p.imgs&&p.imgs.length>0?p.imgs:[p.img]).filter(Boolean).length>1
+             ? `<div id="slider-dots" style="position:absolute;bottom:6px;left:0;right:0;display:flex;justify-content:center;gap:5px">
+                  ${(p.imgs&&p.imgs.length>0?p.imgs:[p.img]).filter(Boolean).map((_,i)=>`<span class="sdot" data-i="${i}" style="width:6px;height:6px;border-radius:50%;background:${i===0?'var(--cr)':'#ccc'};cursor:pointer"></span>`).join('')}
+                </div>`
+             : ''}
+          `
+        : (p.emoji||'📦')}
+    </div>
     <div class="detail-name">${esc(p.name)}</div>
     <div style="font-size:12px;color:#aaa;margin-bottom:4px">${esc(p.cat)}</div>
     <div class="badges" style="margin:6px 0 4px">
@@ -576,6 +611,7 @@ function openDetail(id){
         : '<p style="font-size:12px;color:#bbb;margin-top:8px">コメントするにはログインが必要です</p>'}
     </div>`;
   $('detail-modal-bg').classList.add('open');
+  initSlider();
 }
 
 async function toggleHoshiiD(id){
