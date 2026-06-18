@@ -156,7 +156,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 <div id="tab-hoshii" class="page">
   <div class="product-grid" id="hoshii-grid" style="padding-top:8px"></div>
 </div>
-<div id="tab-profile" class="page">
+<div id="tab-profile" class="page"><h2 style="font-size:15px;font-weight:700;margin:16px 0 10px">📄 契約書一覧</h2><div id="contracts-list"></div>
   <div id="profile-content"></div>
 </div>
 
@@ -246,6 +246,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 </div>
 
 <!-- 商品詳細 -->
+<div class="modal-bg" id="contract-modal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2>📄 契約書</h2>
+      <button class="close-btn" onclick="closeModal('contract-modal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="contract-content"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="select-buyer-modal">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2>👤 購入者を選ぶ</h2>
+      <button class="close-btn" onclick="closeModal('select-buyer-modal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="select-buyer-content"></div>
+  </div>
+</div>
 <div class="modal-bg" id="detail-modal-bg">
   <div class="modal" id="detail-modal"></div>
 </div>
@@ -541,7 +560,7 @@ function openDetail(id){
       <button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
         <i class="ti ti-heart"></i> ${iH?'ほしい！済':'ほしい！'}（${p.hoshii.length}）
       </button>
-      ${isMine?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i> 編集</button>`:''}
+      ${isMine?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i> 編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}',${JSON.stringify(p.hoshii)},${p.isAuction},'${p.auctionEnd||''}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
@@ -738,6 +757,167 @@ applySession();
 renderCats();
 loadProducts();
 setInterval(loadProducts, 30000);
+
+// 購入者選択モーダルを開く
+async function openSelectBuyer(productId, hoshiiList, isAuction, auctionEnd) {
+  const c = document.getElementById('select-buyer-content');
+  if (isAuction) {
+    const bids = await fetch('/api/products/' + productId + '/bids').then(r => r.json());
+    c.innerHTML = `
+      <p style="font-size:13px;color:#666;margin-bottom:12px">オークション締切: ${auctionEnd || '未設定'}</p>
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">入札一覧</h3>
+      ${bids.length === 0 ? '<p style="color:#999;font-size:13px">まだ入札なし</p>' : bids.map((b,i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${i===0?'#fff3f3':'#fafafa'};border-radius:10px;margin-bottom:8px">
+          <span style="font-weight:700">${i===0?'👑 ':''}${b.user}</span>
+          <span style="font-weight:700;color:var(--cr)">¥${b.amount.toLocaleString()}</span>
+          <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="confirmSelectBuyer('${productId}','${b.user}')">選ぶ</button>
+        </div>`).join('')}
+    `;
+  } else {
+    c.innerHTML = `
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">ほしい！リストから選ぶ</h3>
+      ${hoshiiList.length === 0 ? '<p style="color:#999;font-size:13px">ほしい！した人がいません</p>' : hoshiiList.map(u => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#fafafa;border-radius:10px;margin-bottom:8px">
+          <span style="font-weight:700">${u}</span>
+          <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="confirmSelectBuyer('${productId}','${u}')">選ぶ</button>
+        </div>`).join('')}
+      <hr style="margin:14px 0">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">直接指定</h3>
+      <input id="direct-buyer-input" class="inp" placeholder="ニックネームを入力" style="margin-bottom:8px">
+      <button class="btn-p" style="width:100%" onclick="confirmSelectBuyer('${productId}', document.getElementById('direct-buyer-input').value)">この人に決める</button>
+    `;
+  }
+  document.getElementById('select-buyer-modal').classList.add('open');
+}
+
+async function confirmSelectBuyer(productId, buyer) {
+  if (!buyer) return alert('ニックネームを入力してください');
+  if (!confirm(buyer + ' さんに決めますか？')) return;
+  const res = await fetch('/api/products/' + productId + '/select-buyer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ buyer, requester: loginUser })
+  }).then(r => r.json());
+  if (res.error) return alert(res.error);
+  closeModal('select-buyer-modal');
+  openContractForm(productId, loginUser, buyer);
+}
+
+// 契約書フォームを開く
+async function openContractForm(productId, seller, buyer) {
+  const c = document.getElementById('contract-content');
+  const p = products.find(x => x._id === productId);
+  c.innerHTML = `
+    <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px">
+      <p style="font-size:13px;color:#666">品物</p>
+      <p style="font-weight:700">${p ? p.emoji + ' ' + p.name : ''}</p>
+      <p style="font-size:13px;color:var(--cr);font-weight:700">¥${p ? p.price.toLocaleString() : ''}</p>
+    </div>
+    <p style="font-size:13px;color:#666;margin-bottom:4px">出品者: <b>${seller}</b>　購入者: <b>${buyer}</b></p>
+    <label class="lbl">支払日</label>
+    <input id="ct-payment" class="inp" type="date">
+    <label class="lbl">受け渡し日</label>
+    <input id="ct-handover-date" class="inp" type="date">
+    <label class="lbl">受け渡し場所</label>
+    <input id="ct-handover-place" class="inp" placeholder="例: 教室、駅前など">
+    <label class="lbl">メモ・備考</label>
+    <textarea id="ct-memo" class="inp" rows="3" placeholder="自由記入"></textarea>
+    <button class="btn-p" style="width:100%;margin-top:8px" onclick="submitContract('${productId}','${seller}','${buyer}')">契約書を作成する</button>
+  `;
+  document.getElementById('contract-modal').classList.add('open');
+}
+
+async function submitContract(productId, seller, buyer) {
+  const paymentDate = document.getElementById('ct-payment').value;
+  const handoverDate = document.getElementById('ct-handover-date').value;
+  const handoverPlace = document.getElementById('ct-handover-place').value;
+  const memo = document.getElementById('ct-memo').value;
+  const res = await fetch('/api/contracts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, seller, buyer, paymentDate, handoverDate, handoverPlace, memo })
+  }).then(r => r.json());
+  if (res.error) return alert(res.error);
+  openContractSign(res._id);
+}
+
+// 契約書サインモーダル
+async function openContractSign(contractId) {
+  const c = await fetch('/api/contracts/' + contractId).then(r => r.json());
+  const content = document.getElementById('contract-content');
+  content.innerHTML = `
+    <div style="border:1px solid #eee;border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;line-height:2">
+      <p>📦 品物: <b>${c.productName}</b></p>
+      <p>💴 金額: <b>¥${c.price.toLocaleString()}</b></p>
+      <p>📅 支払日: <b>${c.paymentDate || '未定'}</b></p>
+      <p>🤝 受け渡し日: <b>${c.handoverDate || '未定'}</b></p>
+      <p>📍 受け渡し場所: <b>${c.handoverPlace || '未定'}</b></p>
+      <p>📝 メモ: ${c.memo || 'なし'}</p>
+    </div>
+    <div style="margin-bottom:14px">
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">出品者サイン (${c.seller})</p>
+      ${c.sellerSigned ? '<p style="color:green">✅ ' + c.sellerSign + '</p>' :
+        loginUser === c.seller ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
+    </div>
+    <div>
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">購入者サイン (${c.buyer})</p>
+      ${c.buyerSigned ? '<p style="color:green">✅ ' + c.buyerSign + '</p>' :
+        loginUser === c.buyer ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
+    </div>
+    ${c.sellerSigned && c.buyerSigned ? '<p style="text-align:center;color:green;font-weight:700;margin-top:14px">✅ 契約成立！</p>' : ''}
+  `;
+  document.getElementById('contract-modal').classList.add('open');
+}
+
+async function submitSign(contractId) {
+  const sign = document.getElementById('sign-input').value;
+  if (!sign) return alert('名前を入力してください');
+  const res = await fetch('/api/contracts/' + contractId + '/sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: loginUser, sign })
+  }).then(r => r.json());
+  if (res.error) return alert(res.error);
+  openContractSign(contractId);
+}
+
+// 入札する
+async function submitBid(productId) {
+  const amount = parseInt(document.getElementById('bid-amount-' + productId).value);
+  if (!amount) return alert('金額を入力してください');
+  const res = await fetch('/api/products/' + productId + '/bid', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: loginUser, amount })
+  }).then(r => r.json());
+  if (res.error) return alert(res.error);
+  alert('入札しました！');
+  closeModal('detail-modal-bg');
+  loadProducts();
+}
+
+// 契約書一覧を表示
+async function loadContracts() {
+  if (!loginUser) return;
+  const contracts = await fetch('/api/contracts?user=' + loginUser).then(r => r.json());
+  const el = document.getElementById('contracts-list');
+  if (!el) return;
+  if (contracts.length === 0) {
+    el.innerHTML = '<p style="color:#999;font-size:13px;text-align:center;padding:20px">契約書はまだありません</p>';
+    return;
+  }
+  el.innerHTML = contracts.map(c => `
+    <div style="background:#fafafa;border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer" onclick="openContractSign('${c._id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <p style="font-weight:700;font-size:14px">${c.productName}</p>
+        <p style="font-weight:700;color:var(--cr)">¥${c.price.toLocaleString()}</p>
+      </div>
+      <p style="font-size:12px;color:#999;margin-top:4px">${c.seller} → ${c.buyer}</p>
+      <p style="font-size:12px;margin-top:4px">${c.sellerSigned && c.buyerSigned ? '✅ 契約成立' : '⏳ サイン待ち'}</p>
+    </div>
+  `).join('');
+}
+
 </script>
 </body>
 </html>
