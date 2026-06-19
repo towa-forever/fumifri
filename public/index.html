@@ -600,6 +600,7 @@ function openDetail(id){
     <div class="detail-desc">${esc(p.desc)}</div>
     <div class="detail-owner"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px"></i> 出品者: ${esc(p.owner)}</div>
     <div class="detail-actions">
+      ${!p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#fff;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
       <button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
         <i class="ti ti-heart"></i> ${iH?'ほしい！済':'ほしい！'}（${p.hoshii.length}）
       </button>
@@ -648,6 +649,23 @@ async function autoApplyCoupon(productId) {
     const el = document.getElementById('coupon-result');
     if (el) el.innerHTML = `<span style="color:green;font-weight:700">🎉 自動クーポン適用！-${res.type==='percent'?res.value+'%':res.value+'円'} → ¥${after.toLocaleString()}</span>`;
   } catch(e) {}
+}
+
+async function buyProduct(id){
+  if(!session){ openAuth(); return; }
+  if(!confirm('購入希望を出品者に伝えますか？')) return;
+  try{
+    const p = await fetch('/api/products/' + id + '/buy', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ buyer: session.name })
+    }).then(r => r.json());
+    if(p.error){ toast(p.error); return; }
+    const idx = products.findIndex(x => x._id === id);
+    if(idx > -1) products[idx] = p;
+    openDetail(id); renderFiltered(); renderHoshii();
+    toast('購入希望を伝えました！');
+  }catch(e){ toast('エラーが発生しました'); }
 }
 
 async function toggleHoshiiD(id){

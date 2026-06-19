@@ -159,6 +159,21 @@ const contractSchema = new mongoose.Schema({
 });
 const Contract = mongoose.model('Contract', contractSchema);
 
+app.post('/api/products/:id/buy', async (req, res) => {
+  const { buyer } = req.body;
+  if (!buyer) return res.status(400).json({ error: '購入者情報が必要です' });
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  if (p.sold) return res.status(400).json({ error: 'すでに売り切れです' });
+  if (p.owner === buyer) return res.status(400).json({ error: '自分の商品は購入できません' });
+  if (!p.hoshii.includes(buyer)) p.hoshii.push(buyer);
+  await p.save();
+  const subs = await Sub.find();
+  const payload = JSON.stringify({ title: '文フリ 購入希望！', body: buyer + 'さんが「' + p.name + '」を買いたいと言っています！' });
+  subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
+  res.json(p);
+});
+
 app.post('/api/products/:id/select-buyer', async (req, res) => {
   const { buyer, requester } = req.body;
   const p = await Product.findById(req.params.id);
