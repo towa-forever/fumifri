@@ -603,7 +603,7 @@ function openDetail(id){
       <button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
         <i class="ti ti-heart"></i> ${iH?'ほしい！済':'ほしい！'}（${p.hoshii.length}）
       </button>
-      ${isMine?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i> 編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}',${JSON.stringify(p.hoshii)},${p.isAuction},'${p.auctionEnd||''}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
+      ${isMine?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i> 編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
@@ -754,7 +754,7 @@ function openEdit(id){
   closeModal('detail-modal-bg');
   const p = products.find(x=>x._id===id);
   if(!p) return;
-  editId=id; selEmoji=p.emoji||EMOJIS[0]; negOn=p.neg; soldOn=p.sold; pendingImgs=p.img?[p.img]:[];
+  editId=id; selEmoji=p.emoji||EMOJIS[0]; negOn=p.neg; soldOn=p.sold; pendingImgs=(p.imgs&&p.imgs.length>0)?p.imgs.slice():(p.img?[p.img]:[]);
   $('form-title').textContent='商品を編集';
   $('f-name').value=p.name; $('f-desc').value=p.desc; $('f-price').value=p.price;
   $('form-save').textContent='保存する';
@@ -845,7 +845,12 @@ loadProducts();
 setInterval(loadProducts, 30000);
 
 // 購入者選択モーダルを開く
-async function openSelectBuyer(productId, hoshiiList, isAuction, auctionEnd) {
+async function openSelectBuyer(productId) {
+  const p = products.find(x => x._id === productId);
+  if (!p) { toast('商品が見つかりません'); return; }
+  const hoshiiList = p.hoshii || [];
+  const isAuction = !!p.isAuction;
+  const auctionEnd = p.auctionEnd || '';
   const c = document.getElementById('select-buyer-content');
   if (isAuction) {
     const bids = await fetch('/api/products/' + productId + '/bids').then(r => r.json());

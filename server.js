@@ -40,6 +40,7 @@ const productSchema = new mongoose.Schema({
   sold: { type: Boolean, default: false },
   emoji: { type: String, default: '📦' },
   img: { type: String, default: null },
+  imgs: { type: [String], default: [] },
   owner: { type: String, required: true },
   hoshii: { type: [String], default: [] },
   comments: { type: [{ user: String, text: String, createdAt: { type: Date, default: Date.now } }], default: [] },
@@ -83,9 +84,9 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, emoji, img, owner } = req.body;
+  const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner } = req.body;
   if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
-  const p = await Product.create({ name, cat, cond, desc, price, neg, emoji, img, owner });
+  const p = await Product.create({ name, cat, cond, desc, price, neg, emoji, img, imgs: imgs || [], owner });
   const subs = await Sub.find();
   const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
@@ -93,11 +94,11 @@ app.post('/api/products', async (req, res) => {
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, sold, emoji, img, requester } = req.body;
+  const { name, cat, cond, desc, price, neg, sold, emoji, img, imgs, requester } = req.body;
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   if (p.owner !== requester) return res.status(403).json({ error: '編集権限がありません' });
-  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img });
+  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img, imgs: imgs || [] });
   await p.save();
   res.json(p);
 });
