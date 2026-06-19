@@ -26,7 +26,12 @@ const userSchema = new mongoose.Schema({
   bio: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   isAuction: { type: Boolean, default: false },
+  auctionStartDate: { type: String, default: null },
+  auctionStartTime: { type: String, default: null },
+  auctionEndTime: { type: String, default: null },
   auctionEnd: { type: String, default: null },
+  auctionStatus: { type: String, default: 'none' },
+  currentWinnerIndex: { type: Number, default: 0 },
   buyer: { type: String, default: null }
 });
 
@@ -84,9 +89,18 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner } = req.body;
+  const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner, isAuction, auctionStartDate, auctionStartTime, auctionEndTime } = req.body;
   if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
-  const p = await Product.create({ name, cat, cond, desc, price, neg, emoji, img, imgs: imgs || [], owner });
+  let auctionEnd = null;
+  let auctionStatus = 'none';
+  if (isAuction && auctionStartDate && auctionEndTime) {
+    auctionEnd = auctionStartDate + 'T' + auctionEndTime + ':00';
+    auctionStatus = 'scheduled';
+  }
+  const p = await Product.create({
+    name, cat, cond, desc, price, neg, emoji, img, imgs: imgs || [], owner,
+    isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndTime, auctionEnd, auctionStatus
+  });
   const subs = await Sub.find();
   const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
@@ -190,11 +204,91 @@ app.post('/api/products/:id/bid', async (req, res) => {
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   if (!p.isAuction) return res.status(400).json({ error: 'オークション商品ではありません' });
+  if (p.auctionStatus !== 'open') return res.status(400).json({ error: '現在入札できません' });
   if (p.auctionEnd && new Date() > new Date(p.auctionEnd)) return res.status(400).json({ error: 'オークション終了済み' });
+  if (amount > 30000) return res.status(400).json({ error: '入札は3万円までです' });
+  if (p.owner === user) return res.status(400).json({ error: '自分の商品には入札できません' });
   const topBid = await Bid.findOne({ productId: req.params.id }).sort({ amount: -1 });
   if (topBid && amount <= topBid.amount) return res.status(400).json({ error: '現在の最高額より高い金額を入力してください' });
   const bid = await Bid.create({ productId: req.params.id, user, amount });
   res.json(bid);
+});
+
+// オークション開始（時刻が来たらstatusをopenに）
+app.post('/api/products/:id/auction-start', async (req, res) => {
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  p.auctionStatus = 'open';
+  await p.save();
+  res.json(p);
+});
+
+// オークション終了（時刻が来たら最高額者に確認を出す）
+app.post('/api/products/:id/auction-end', async (req, res) => {
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
+  if (bids.length === 0) {
+    p.auctionStatus = 'done';
+    await p.save();
+    return res.json({ p, message: '入札がありませんでした' });
+  }
+  p.auctionStatus = 'confirming';
+  p.currentWinnerIndex = 0;
+  await p.save();
+  res.json({ p, topBidder: bids[0] });
+});
+
+// 最高額者の最終確認（購入する/しない）
+app.post('/api/products/:id/auction-confirm', async (req, res) => {
+  const { user, accept } = req.body;
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
+  const current = bids[p.currentWinnerIndex];
+  if (!current || current.user !== user) return res.status(403).json({ error: '今は確認の対象者ではありません' });
+  if (accept) {
+    p.buyer = user;
+    p.sold = true;
+    p.auctionStatus = 'done';
+    await p.save();
+    return res.json({ ok: true, decided: true, buyer: user });
+  } else {
+    p.currentWinnerIndex += 1;
+    if (p.currentWinnerIndex >= bids.length) {
+      p.auctionStatus = 'done';
+      await p.save();
+      return res.json({ ok: true, decided: false, message: '購入者が決まりませんでした' });
+    }
+    await p.save();
+    res.json({ ok: true, decided: false, nextBidder: bids[p.currentWinnerIndex] });
+  }
+});
+
+// 出品者が手動で次の人に進める
+app.post('/api/products/:id/auction-next', async (req, res) => {
+  const { requester } = req.body;
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  if (p.owner !== requester) return res.status(403).json({ error: '権限がありません' });
+  const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
+  p.currentWinnerIndex += 1;
+  if (p.currentWinnerIndex >= bids.length) {
+    p.auctionStatus = 'done';
+    await p.save();
+    return res.json({ ok: true, decided: false, message: '購入者が決まりませんでした' });
+  }
+  await p.save();
+  res.json({ ok: true, nextBidder: bids[p.currentWinnerIndex] });
+});
+
+// 現在の確認対象者を取得
+app.get('/api/products/:id/auction-current', async (req, res) => {
+  const p = await Product.findById(req.params.id);
+  if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
+  const current = bids[p.currentWinnerIndex] || null;
+  res.json({ status: p.auctionStatus, current, allBids: bids });
 });
 
 app.get('/api/products/:id/bids', async (req, res) => {
@@ -304,6 +398,40 @@ app.get('/api/version', (req, res) => res.json({ v: Date.now() }));
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// オークション自動進行（1分おきにチェック）
+setInterval(async () => {
+  try {
+    const now = new Date();
+    // 開始時刻が来たscheduled商品をopenに
+    const toStart = await Product.find({ isAuction: true, auctionStatus: 'scheduled' });
+    for (const p of toStart) {
+      if (p.auctionStartDate && p.auctionStartTime) {
+        const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00');
+        if (now >= startAt) {
+          p.auctionStatus = 'open';
+          await p.save();
+        }
+      }
+    }
+    // 終了時刻が来たopen商品をconfirmingに
+    const toEnd = await Product.find({ isAuction: true, auctionStatus: 'open' });
+    for (const p of toEnd) {
+      if (p.auctionEnd && now >= new Date(p.auctionEnd)) {
+        const bids = await Bid.find({ productId: p._id }).sort({ amount: -1 });
+        if (bids.length === 0) {
+          p.auctionStatus = 'done';
+        } else {
+          p.auctionStatus = 'confirming';
+          p.currentWinnerIndex = 0;
+        }
+        await p.save();
+      }
+    }
+  } catch (e) {
+    console.error('Auction timer error:', e);
+  }
+}, 60000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`文フリ server running on ${PORT}`));
