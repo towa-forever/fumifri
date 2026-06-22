@@ -156,19 +156,25 @@ const bidSchema = new mongoose.Schema({
 const Bid = mongoose.model('Bid', bidSchema);
 
 const contractSchema = new mongoose.Schema({
+  contractNumber: { type: String, default: '' },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String, required: true },
   price: { type: Number, required: true },
   seller: { type: String, required: true },
   buyer: { type: String, default: '' },
   paymentDate: { type: String, default: '' },
+  paymentMethod: { type: String, default: '現金' },
   handoverDate: { type: String, default: '' },
   handoverPlace: { type: String, default: '' },
+  handoverMethod: { type: String, default: '対面' },
+  cancellationPolicy: { type: String, default: '受け渡し日の前日までに申し出た場合に限り、双方合意のうえキャンセルできるものとする。' },
   memo: { type: String, default: '' },
   sellerSign: { type: String, default: '' },
   buyerSign: { type: String, default: '' },
   sellerSigned: { type: Boolean, default: false },
   buyerSigned: { type: Boolean, default: false },
+  sellerSignedAt: { type: Date, default: null },
+  buyerSignedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 const Contract = mongoose.model('Contract', contractSchema);
@@ -297,10 +303,11 @@ app.get('/api/products/:id/bids', async (req, res) => {
 });
 
 app.post('/api/contracts', async (req, res) => {
-  const { productId, seller, buyer, paymentDate, handoverDate, handoverPlace, memo } = req.body;
+  const { productId, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo } = req.body;
   const p = await Product.findById(productId);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
-  const contract = await Contract.create({ productId, productName: p.name, price: p.price, seller, buyer, paymentDate, handoverDate, handoverPlace, memo });
+  const contractNumber = 'FF-' + Date.now().toString(36).toUpperCase();
+  const contract = await Contract.create({ contractNumber, productId, productName: p.name, price: p.price, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo });
   res.json(contract);
 });
 
@@ -320,8 +327,8 @@ app.post('/api/contracts/:id/sign', async (req, res) => {
   const { user, sign } = req.body;
   const c = await Contract.findById(req.params.id);
   if (!c) return res.status(404).json({ error: '契約書が見つかりません' });
-  if (c.seller === user) { c.sellerSign = sign; c.sellerSigned = true; }
-  else if (c.buyer === user) { c.buyerSign = sign; c.buyerSigned = true; }
+  if (c.seller === user) { c.sellerSign = sign; c.sellerSigned = true; c.sellerSignedAt = new Date(); }
+  else if (c.buyer === user) { c.buyerSign = sign; c.buyerSigned = true; c.buyerSignedAt = new Date(); }
   else return res.status(403).json({ error: '権限がありません' });
   await c.save();
   res.json(c);
