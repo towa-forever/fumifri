@@ -96,7 +96,7 @@ app.post('/api/products', async (req, res) => {
   let auctionStatus = 'none';
   const endDate = auctionEndDate || auctionStartDate;
   if (isAuction && endDate && auctionEndTime) {
-    auctionEnd = endDate + 'T' + auctionEndTime + ':00';
+    auctionEnd = endDate + 'T' + auctionEndTime + ':00+09:00';
     auctionStatus = 'scheduled';
   }
   const p = await Product.create({
@@ -120,7 +120,7 @@ app.put('/api/products/:id', async (req, res) => {
   let auctionStatus = p.auctionStatus;
   if (isAuction) {
     if (!p.isAuction) auctionStatus = 'scheduled';
-    if (endDate && auctionEndTime) auctionEnd = endDate + 'T' + auctionEndTime + ':00';
+    if (endDate && auctionEndTime) auctionEnd = endDate + 'T' + auctionEndTime + ':00+09:00';
   } else {
     auctionEnd = null;
     auctionStatus = 'none';
@@ -428,7 +428,7 @@ setInterval(async () => {
     const toStart = await Product.find({ isAuction: true, auctionStatus: 'scheduled' });
     for (const p of toStart) {
       if (p.auctionStartDate && p.auctionStartTime) {
-        const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00');
+        const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00+09:00');
         if (now >= startAt) {
           p.auctionStatus = 'open';
           await p.save();
