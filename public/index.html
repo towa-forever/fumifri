@@ -310,8 +310,9 @@ let soldOn = false;
 const $ = id => document.getElementById(id);
 
 try { session = JSON.parse(localStorage.getItem('fumifri_session')); } catch(e){}
-function saveSession(s){ session = s; localStorage.setItem('fumifri_session', JSON.stringify(s)); }
-function clearSession(){ session = null; localStorage.removeItem('fumifri_session'); }
+let loginUser = session ? session.name : null;
+function saveSession(s){ session = s; loginUser = s ? s.name : null; localStorage.setItem('fumifri_session', JSON.stringify(s)); }
+function clearSession(){ session = null; loginUser = null; localStorage.removeItem('fumifri_session'); }
 
 function toast(msg){
   const t = $('toast');
