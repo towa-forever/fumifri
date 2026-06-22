@@ -927,16 +927,20 @@ async function openSelectBuyer(productId) {
 }
 
 async function confirmSelectBuyer(productId, buyer) {
-  if (!buyer) return alert('ニックネームを入力してください');
-  if (!confirm(buyer + ' さんに決めますか？')) return;
-  const res = await fetch('/api/products/' + productId + '/select-buyer', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ buyer, requester: loginUser })
-  }).then(r => r.json());
-  if (res.error) return alert(res.error);
-  closeModal('select-buyer-modal');
-  openContractForm(productId, loginUser, buyer);
+  try {
+    if (!buyer) return alert('ニックネームを入力してください');
+    if (!confirm(buyer + ' さんに決めますか？')) return;
+    const res = await fetch('/api/products/' + productId + '/select-buyer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyer, requester: loginUser })
+    }).then(r => r.json());
+    if (res.error) return alert(res.error);
+    closeModal('select-buyer-modal');
+    await openContractForm(productId, loginUser, buyer);
+  } catch (e) {
+    alert('DEBUG ERROR: ' + e.message);
+  }
 }
 
 // 契約書フォームを開く
