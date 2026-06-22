@@ -619,12 +619,14 @@ function openDetail(id){
     <div class="detail-price">¥${p.price.toLocaleString()}</div>
     <div class="detail-desc">${esc(p.desc)}</div>
     <div class="detail-owner"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px"></i> 出品者: ${esc(p.owner)}</div>
+    ${p.isAuction ? `<div id="auction-box" style="background:#fff8f0;border-radius:10px;padding:12px;margin-bottom:10px"></div>` : ''}
     <div class="detail-actions">
-      ${!p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#fff;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
-      <button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
-        <i class="ti ti-heart"></i> ${iH?'ほしい！済':'ほしい！'}（${p.hoshii.length}）
-      </button>
-      ${isMine?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i> 編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
+      ${!p.isAuction && !p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#fff;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
+      ${!p.isAuction ? `<button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
+        <i class="ti ti-heart"></i> ${iH?' ほしい！済':'ほしい！'}（${p.hoshii.length}）
+      </button>` : ''}
+      ${isMine && !p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
+      ${isMine && p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button>`:''}
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
@@ -652,6 +654,7 @@ function openDetail(id){
     </div>`;
   $('detail-modal-bg').classList.add('open');
   initSlider();
+  if (p.isAuction) renderAuctionBox(id);
   // コード不要クーポンを自動チェック
   autoApplyCoupon(id);
 }
@@ -1016,17 +1019,18 @@ async function submitSign(contractId) {
 
 // 入札する
 async function submitBid(productId) {
-  const amount = parseInt(document.getElementById('bid-amount-' + productId).value);
-  if (!amount) return alert('金額を入力してください');
+  const input = document.getElementById('bid-amount-' + productId);
+  const amount = parseInt(input.value);
+  if (!amount) return toast('金額を入力してください');
+  if (amount > 30000) return toast('入札は3万円までです');
   const res = await fetch('/api/products/' + productId + '/bid', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user: loginUser, amount })
   }).then(r => r.json());
-  if (res.error) return alert(res.error);
-  alert('入札しました！');
-  closeModal('detail-modal-bg');
-  loadProducts();
+  if (res.error) return toast(res.error);
+  toast('入札しました！');
+  renderAuctionBox(productId);
 }
 
 // 契約書一覧を表示
@@ -1170,6 +1174,95 @@ async function deleteCoupon(id) {
   if (res.error) return toast(res.error);
   toast('削除しました');
   openCouponManager();
+}
+
+
+// ---- オークション表示 ----
+async function renderAuctionBox(productId) {
+  const box = document.getElementById('auction-box');
+  if (!box) return;
+  const p = products.find(x => x._id === productId);
+  if (!p) return;
+
+  if (p.auctionStatus === 'scheduled') {
+    box.innerHTML = `
+      <p style="font-weight:700;font-size:14px;margin-bottom:6px">⏰ オークション開始予定</p>
+      <p style="font-size:13px;color:#666">${p.auctionStartDate} ${p.auctionStartTime} 開始 / ${p.auctionEndTime} 終了</p>
+    `;
+    return;
+  }
+
+  if (p.auctionStatus === 'done') {
+    box.innerHTML = `<p style="font-weight:700;font-size:14px;color:green">✅ オークション終了</p>${p.buyer?`<p style="font-size:13px;color:#666">落札者: ${esc(p.buyer)}</p>`:'<p style="font-size:13px;color:#999">入札なし、または成立しませんでした</p>'}`;
+    return;
+  }
+
+  const data = await fetch('/api/products/' + productId + '/auction-current').then(r => r.json());
+
+  if (p.auctionStatus === 'confirming') {
+    const isCurrent = data.current && data.current.user === loginUser;
+    box.innerHTML = `
+      <p style="font-weight:700;font-size:14px;margin-bottom:6px">🔨 オークション終了！最終確認中</p>
+      ${data.current ? `<p style="font-size:13px;color:#666;margin-bottom:8px">現在の最高額: <b>${esc(data.current.user)}</b> さん ¥${data.current.amount.toLocaleString()}</p>` : '<p style="font-size:13px;color:#999">入札がありませんでした</p>'}
+      ${isCurrent ? `
+        <p style="font-size:13px;margin-bottom:8px">あなたが最高額です！購入しますか？</p>
+        <div style="display:flex;gap:8px">
+          <button class="btn-p" style="flex:1" onclick="confirmAuctionBuy('${productId}', true)">購入する</button>
+          <button class="btn-c" style="flex:1" onclick="confirmAuctionBuy('${productId}', false)">購入しない</button>
+        </div>
+      ` : isMineCheck(p) ? `<button class="btn-p" style="width:100%;margin-top:6px" onclick="nextAuctionWinner('${productId}')">次の人に進める（出品者用）</button>` : '<p style="font-size:12px;color:#999">落札者の回答を待っています...</p>'}
+    `;
+    return;
+  }
+
+  // open状態：入札一覧 + 入札フォーム
+  const topBid = data.allBids[0];
+  box.innerHTML = `
+    <p style="font-weight:700;font-size:14px;margin-bottom:6px">🔨 オークション開催中</p>
+    <p style="font-size:13px;color:#666;margin-bottom:8px">終了: ${p.auctionEndTime || ''}　${topBid ? '現在の最高額: ¥' + topBid.amount.toLocaleString() + '（' + esc(topBid.user) + 'さん）' : 'まだ入札がありません'}</p>
+    ${session && p.owner !== session.name ? `
+      <div style="display:flex;gap:6px">
+        <input id="bid-amount-${productId}" type="number" class="inp" style="margin:0;flex:1" placeholder="入札額（〜30000円）" max="30000">
+        <button class="btn-p" style="padding:8px 14px" onclick="submitBid('${productId}')">入札</button>
+      </div>
+    ` : ''}
+  `;
+}
+
+function isMineCheck(p) {
+  return session && p.owner === session.name;
+}
+
+async function confirmAuctionBuy(productId, accept) {
+  if (accept && !confirm('本当に購入しますか？この後契約書を作成します。')) return;
+  const res = await fetch('/api/products/' + productId + '/auction-confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: loginUser, accept })
+  }).then(r => r.json());
+  if (res.error) return toast(res.error);
+  if (accept && res.decided) {
+    toast('購入が確定しました！契約書を作成します');
+    closeModal('detail-modal-bg');
+    const p = products.find(x => x._id === productId);
+    openContractForm(productId, p.owner, loginUser);
+  } else {
+    toast('購入しない、を選択しました');
+    loadProducts();
+    closeModal('detail-modal-bg');
+  }
+}
+
+async function nextAuctionWinner(productId) {
+  if (!confirm('次の入札者に確認を進めますか？')) return;
+  const res = await fetch('/api/products/' + productId + '/auction-next', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requester: loginUser })
+  }).then(r => r.json());
+  if (res.error) return toast(res.error);
+  toast(res.decided === false && res.message ? res.message : '次の人に進めました');
+  renderAuctionBox(productId);
 }
 
 </script>
