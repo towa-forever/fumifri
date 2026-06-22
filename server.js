@@ -24,15 +24,7 @@ const userSchema = new mongoose.Schema({
   pass: { type: String, required: true },
   emoji: { type: String, default: '✏️' },
   bio: { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now },
-  isAuction: { type: Boolean, default: false },
-  auctionStartDate: { type: String, default: null },
-  auctionStartTime: { type: String, default: null },
-  auctionEndTime: { type: String, default: null },
-  auctionEnd: { type: String, default: null },
-  auctionStatus: { type: String, default: 'none' },
-  currentWinnerIndex: { type: Number, default: 0 },
-  buyer: { type: String, default: null }
+  createdAt: { type: Date, default: Date.now }
 });
 
 const productSchema = new mongoose.Schema({
@@ -49,7 +41,15 @@ const productSchema = new mongoose.Schema({
   owner: { type: String, required: true },
   hoshii: { type: [String], default: [] },
   comments: { type: [{ user: String, text: String, createdAt: { type: Date, default: Date.now } }], default: [] },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  isAuction: { type: Boolean, default: false },
+  auctionStartDate: { type: String, default: null },
+  auctionStartTime: { type: String, default: null },
+  auctionEndTime: { type: String, default: null },
+  auctionEnd: { type: String, default: null },
+  auctionStatus: { type: String, default: 'none' },
+  currentWinnerIndex: { type: Number, default: 0 },
+  buyer: { type: String, default: null }
 });
 
 const User = mongoose.model('User', userSchema);
