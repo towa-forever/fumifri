@@ -45,6 +45,7 @@ const productSchema = new mongoose.Schema({
   isAuction: { type: Boolean, default: false },
   auctionStartDate: { type: String, default: null },
   auctionStartTime: { type: String, default: null },
+  auctionEndDate: { type: String, default: null },
   auctionEndTime: { type: String, default: null },
   auctionEnd: { type: String, default: null },
   auctionStatus: { type: String, default: 'none' },
@@ -89,17 +90,18 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner, isAuction, auctionStartDate, auctionStartTime, auctionEndTime } = req.body;
+  const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner, isAuction, auctionStartDate, auctionStartTime, auctionEndDate, auctionEndTime } = req.body;
   if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
   let auctionEnd = null;
   let auctionStatus = 'none';
-  if (isAuction && auctionStartDate && auctionEndTime) {
-    auctionEnd = auctionStartDate + 'T' + auctionEndTime + ':00';
+  const endDate = auctionEndDate || auctionStartDate;
+  if (isAuction && endDate && auctionEndTime) {
+    auctionEnd = endDate + 'T' + auctionEndTime + ':00';
     auctionStatus = 'scheduled';
   }
   const p = await Product.create({
     name, cat, cond, desc, price, neg, emoji, img, imgs: imgs || [], owner,
-    isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndTime, auctionEnd, auctionStatus
+    isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndDate: endDate, auctionEndTime, auctionEnd, auctionStatus
   });
   const subs = await Sub.find();
   const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
@@ -108,22 +110,23 @@ app.post('/api/products', async (req, res) => {
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, sold, emoji, img, imgs, requester, isAuction, auctionStartDate, auctionStartTime, auctionEndTime } = req.body;
+  const { name, cat, cond, desc, price, neg, sold, emoji, img, imgs, requester, isAuction, auctionStartDate, auctionStartTime, auctionEndDate, auctionEndTime } = req.body;
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   if (p.owner !== requester) return res.status(403).json({ error: '編集権限がありません' });
 
+  const endDate = auctionEndDate || auctionStartDate;
   let auctionEnd = p.auctionEnd;
   let auctionStatus = p.auctionStatus;
   if (isAuction) {
     if (!p.isAuction) auctionStatus = 'scheduled';
-    if (auctionStartDate && auctionEndTime) auctionEnd = auctionStartDate + 'T' + auctionEndTime + ':00';
+    if (endDate && auctionEndTime) auctionEnd = endDate + 'T' + auctionEndTime + ':00';
   } else {
     auctionEnd = null;
     auctionStatus = 'none';
   }
 
-  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img, imgs: imgs || [], isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndTime, auctionEnd, auctionStatus });
+  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img, imgs: imgs || [], isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndDate: endDate, auctionEndTime, auctionEnd, auctionStatus });
   await p.save();
   res.json(p);
 });
