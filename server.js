@@ -108,11 +108,22 @@ app.post('/api/products', async (req, res) => {
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  const { name, cat, cond, desc, price, neg, sold, emoji, img, imgs, requester } = req.body;
+  const { name, cat, cond, desc, price, neg, sold, emoji, img, imgs, requester, isAuction, auctionStartDate, auctionStartTime, auctionEndTime } = req.body;
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   if (p.owner !== requester) return res.status(403).json({ error: '編集権限がありません' });
-  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img, imgs: imgs || [] });
+
+  let auctionEnd = p.auctionEnd;
+  let auctionStatus = p.auctionStatus;
+  if (isAuction) {
+    if (!p.isAuction) auctionStatus = 'scheduled';
+    if (auctionStartDate && auctionEndTime) auctionEnd = auctionStartDate + 'T' + auctionEndTime + ':00';
+  } else {
+    auctionEnd = null;
+    auctionStatus = 'none';
+  }
+
+  Object.assign(p, { name, cat, cond, desc, price, neg, sold, emoji, img, imgs: imgs || [], isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndTime, auctionEnd, auctionStatus });
   await p.save();
   res.json(p);
 });
