@@ -85,8 +85,9 @@ app.post('/api/subscribe', async (req, res) => {
 });
 
 app.get('/api/products', async (req, res) => {
-  const products = await Product.find().sort({ createdAt: -1 }).lean();
-  res.json(products);
+  let products = await Product.find().sort({ createdAt: -1 });
+  await tickAuctions(products);
+  res.json(products.map(p => p.toObject()));
 });
 
 app.post('/api/products', async (req, res) => {
@@ -168,6 +169,34 @@ const bidSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Bid = mongoose.model('Bid', bidSchema);
+
+// オークション状態を「今の時刻」に合わせて進める（タイマーが止まってても呼ばれた時点で補正する）
+async function tickAuction(p) {
+  if (!p.isAuction) return p;
+  const now = new Date();
+  let changed = false;
+  if (p.auctionStatus === 'scheduled' && p.auctionStartDate && p.auctionStartTime) {
+    const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00+09:00');
+    if (now >= startAt) { p.auctionStatus = 'open'; changed = true; }
+  }
+  if (p.auctionStatus === 'open' && p.auctionEnd && now >= new Date(p.auctionEnd)) {
+    const bids = await Bid.find({ productId: p._id }).sort({ amount: -1 });
+    if (bids.length === 0) { p.auctionStatus = 'done'; }
+    else { p.auctionStatus = 'confirming'; p.currentWinnerIndex = 0; }
+    changed = true;
+  }
+  if (changed) await p.save();
+  return p;
+}
+
+async function tickAuctions(products) {
+  for (const p of products) {
+    if (p.isAuction && (p.auctionStatus === 'scheduled' || p.auctionStatus === 'open')) {
+      await tickAuction(p);
+    }
+  }
+  return products;
+}
 
 const contractSchema = new mongoose.Schema({
   contractNumber: { type: String, default: '' },
@@ -306,6 +335,7 @@ app.post('/api/products/:id/auction-next', async (req, res) => {
 app.get('/api/products/:id/auction-current', async (req, res) => {
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+  await tickAuction(p);
   const bids = await Bid.find({ productId: req.params.id }).sort({ amount: -1 });
   const current = bids[p.currentWinnerIndex] || null;
   res.json({ status: p.auctionStatus, current, allBids: bids });
