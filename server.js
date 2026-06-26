@@ -146,9 +146,11 @@ app.post('/api/products/:id/hoshii', async (req, res) => {
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   const i = p.hoshii.indexOf(user);
+  let added = false;
   if (i > -1) p.hoshii.splice(i, 1);
-  else p.hoshii.push(user);
+  else { p.hoshii.push(user); added = true; }
   await p.save();
+  if (added && p.owner !== user) await notify(p.owner, 'hoshii', `${user}さんが「${p.name}」をほしい！しました`, p._id);
   res.json({ hoshii: p.hoshii });
 });
 
@@ -159,6 +161,7 @@ app.post('/api/products/:id/comments', async (req, res) => {
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   p.comments.push({ user, text });
   await p.save();
+  if (p.owner !== user) await notify(p.owner, 'comment', `${user}さんが「${p.name}」にコメントしました`, p._id);
   res.json(p.comments);
 });
 
@@ -180,6 +183,41 @@ const memorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Memory = mongoose.model('Memory', memorySchema);
+
+// 通知履歴
+const notificationSchema = new mongoose.Schema({
+  user: { type: String, required: true },
+  type: { type: String, default: 'info' },
+  text: { type: String, required: true },
+  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+const Notification = mongoose.model('Notification', notificationSchema);
+
+async function notify(user, type, text, productId) {
+  if (!user) return;
+  try { await Notification.create({ user, type, text, productId: productId || null }); } catch (e) {}
+}
+
+app.get('/api/notifications', async (req, res) => {
+  const { user } = req.query;
+  if (!user) return res.json([]);
+  const list = await Notification.find({ user }).sort({ createdAt: -1 }).limit(50);
+  res.json(list);
+});
+
+app.post('/api/notifications/read-all', async (req, res) => {
+  const { user } = req.body;
+  await Notification.updateMany({ user, read: false }, { read: true });
+  res.json({ ok: true });
+});
+
+app.post('/api/notifications/:id/read', async (req, res) => {
+  const n = await Notification.findById(req.params.id);
+  if (n) { n.read = true; await n.save(); }
+  res.json({ ok: true });
+});
 
 app.get('/api/memories', async (req, res) => {
   const memories = await Memory.find().sort({ createdAt: -1 });
@@ -304,6 +342,7 @@ app.post('/api/products/:id/select-buyer', async (req, res) => {
   p.buyer = buyer;
   p.sold = true;
   await p.save();
+  await notify(buyer, 'selected', `「${p.name}」の購入者に選ばれました！`, p._id);
   res.json({ ok: true, buyer });
 });
 
@@ -319,6 +358,8 @@ app.post('/api/products/:id/bid', async (req, res) => {
   const topBid = await Bid.findOne({ productId: req.params.id }).sort({ amount: -1 });
   if (topBid && amount <= topBid.amount) return res.status(400).json({ error: '現在の最高額より高い金額を入力してください' });
   const bid = await Bid.create({ productId: req.params.id, user, amount });
+  await notify(p.owner, 'bid', `${user}さんが「${p.name}」に¥${amount.toLocaleString()}で入札しました`, p._id);
+  if (topBid && topBid.user !== user) await notify(topBid.user, 'outbid', `「${p.name}」で他の人がより高い金額で入札しました`, p._id);
   res.json(bid);
 });
 
@@ -360,6 +401,7 @@ app.post('/api/products/:id/auction-confirm', async (req, res) => {
     p.sold = true;
     p.auctionStatus = 'done';
     await p.save();
+    await notify(p.owner, 'auction-won', `${user}さんが「${p.name}」の購入を確定しました。契約書を作成しましょう`, p._id);
     return res.json({ ok: true, decided: true, buyer: user });
   } else {
     p.currentWinnerIndex += 1;
@@ -411,6 +453,7 @@ app.post('/api/contracts', async (req, res) => {
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   const contractNumber = 'FF-' + Date.now().toString(36).toUpperCase();
   const contract = await Contract.create({ contractNumber, productId, productName: p.name, price: p.price, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo });
+  await notify(buyer, 'contract', `「${p.name}」の契約書が作成されました。サインしてください`, p._id);
   res.json(contract);
 });
 
@@ -434,6 +477,13 @@ app.post('/api/contracts/:id/sign', async (req, res) => {
   else if (c.buyer === user) { c.buyerSign = sign; c.buyerSigned = true; c.buyerSignedAt = new Date(); }
   else return res.status(403).json({ error: '権限がありません' });
   await c.save();
+  if (c.sellerSigned && c.buyerSigned) {
+    await notify(c.seller, 'contract-done', `「${c.productName}」の契約が成立しました！`, c.productId);
+    await notify(c.buyer, 'contract-done', `「${c.productName}」の契約が成立しました！`, c.productId);
+  } else {
+    const other = c.seller === user ? c.buyer : c.seller;
+    await notify(other, 'contract-sign', `「${c.productName}」の契約書にサインしてください`, c.productId);
+  }
   res.json(c);
 });
 // クーポンスキーマ
