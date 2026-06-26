@@ -481,20 +481,42 @@ function renderHoshii(){
   g.innerHTML = items.length ? items.map(cardHTML).join('') : '<div class="empty"><i class="ti ti-heart"></i><p>ほしい！した商品がここに表示されます</p></div>';
 }
 
+let deepLinkChecked = false;
 async function loadProducts(){
   try{
     products = await api('GET', '/products');
     renderFiltered();
     renderHoshii();
     updateBadge();
+    if(!deepLinkChecked){
+      deepLinkChecked = true;
+      const params = new URLSearchParams(location.search);
+      const pid = params.get('product');
+      if(pid && products.find(p=>p._id===pid)) openDetail(pid);
+    }
   }catch(e){ $('product-grid').innerHTML='<div class="empty"><i class="ti ti-wifi-off"></i><p>読み込みに失敗しました</p></div>'; }
 }
 
 // ---- プロフィール ----
 async function renderProfile(){
   const c = $('profile-content');
+  const cl = $('contracts-list');
   if(!session){ c.innerHTML='<div class="empty" style="padding:60px 20px"><i class="ti ti-user"></i><p>ログインするとプロフィールが表示されます</p></div>'; return; }
   const myItems = products.filter(p => p.owner === session.name);
+
+  if(cl){
+    try{
+      const contracts = await fetch('/api/contracts?user=' + encodeURIComponent(session.name)).then(r=>r.json());
+      cl.innerHTML = contracts.length ? contracts.map(ct => `
+        <div class="mini-pcard" style="cursor:pointer" onclick="openContractSign('${ct._id}')">
+          <div class="mini-pcard-body" style="padding:10px 4px">
+            <div class="mini-pcard-name">${esc(ct.productName)}</div>
+            <div style="font-size:12px;color:#999;margin-top:2px">${esc(ct.seller)} → ${esc(ct.buyer)}　¥${ct.price.toLocaleString()}</div>
+            <div style="font-size:12px;margin-top:4px">${ct.sellerSigned && ct.buyerSigned ? '<span style="color:green">✅ 契約成立</span>' : '<span style="color:#e08a00">⏳ サイコト</span>'}</div>
+          </div>
+        </div>`).join('') : '<p style="font-size:13px;color:#bbb;margin-bottom:14px">まだ契約書はありません</p>';
+    }catch(e){ cl.innerHTML = '<p style="font-size:13px;color:#bbb">読み込みに失敗しました</p>'; }
+  }
 
   // 通知状態確認
   let notifOn = false;
@@ -632,6 +654,7 @@ function openDetail(id){
       </button>` : ''}
       ${isMine && !p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
       ${isMine && p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button>`:''}
+      ${isMine && p.isAuction && p.sold && p.buyer ? `<button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openContractForm('${p._id}','${esc(p.owner)}','${esc(p.buyer)}')"><i class="ti ti-file-text"></i> 契約書を作成する</button>` : ''}
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
@@ -721,14 +744,15 @@ async function sendCmt(id){
 function shareP(id){
   const p = products.find(x => x._id === id);
   if(!p) return;
+  const url = location.origin + '/?product=' + id;
   const text = `【文フリ】${p.emoji||''} ${p.name} ¥${p.price}${p.neg?' 交渉OK':''}`;
-  if(navigator.share) navigator.share({title:'文フリ',text}).catch(()=>{});
-  else navigator.clipboard?.writeText(text).then(()=>toast('クリップボードにコピーしました！'));
+  if(navigator.share) navigator.share({title:'文フリ',text,url}).catch(()=>{});
+  else navigator.clipboard?.writeText(text + '\n' + url).then(()=>toast('リンクをコピーしました！'));
 }
 
 // ---- 認証 ----
 let authIsLogin = false;
-function openAuth(isLogin=false){
+function openAuth(isLogin=true){
   authIsLogin = isLogin; updateAuthUI();
   $('a-name').value=''; $('a-pass').value=''; $('a-emoji').value=''; $('a-bio').value=''; $('auth-err').textContent='';
   $('auth-modal').classList.add('open');
@@ -762,7 +786,7 @@ function applySession(){
   if(session) $('add-btn').classList.add('show'); else $('add-btn').classList.remove('show');
   renderHoshii(); renderProfile();
 }
-$('top-user-btn').onclick = () => { if(!session) openAuth(false); };
+$('top-user-btn').onclick = () => { if(!session) openAuth(true); };
 
 // ---- フォーム ----
 function setupForm(){
@@ -888,7 +912,7 @@ if('serviceWorker' in navigator){
 }
 
 // ---- 起動 ----
-if(!session) openAuth(false);
+if(!session) openAuth(true);
 applySession();
 renderCats();
 loadProducts();
@@ -1312,10 +1336,9 @@ async function confirmAuctionBuy(productId, accept) {
   }).then(r => r.json());
   if (res.error) return toast(res.error);
   if (accept && res.decided) {
-    toast('購入が確定しました！契約書を作成します');
+    toast('購入が確定しました！出品者が契約書を作成します');
+    loadProducts();
     closeModal('detail-modal-bg');
-    const p = products.find(x => x._id === productId);
-    openContractForm(productId, p.owner, loginUser);
   } else {
     toast('購入しない、を選択しました');
     loadProducts();

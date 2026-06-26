@@ -177,7 +177,13 @@ async function tickAuction(p) {
   let changed = false;
   if (p.auctionStatus === 'scheduled' && p.auctionStartDate && p.auctionStartTime) {
     const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00+09:00');
-    if (now >= startAt) { p.auctionStatus = 'open'; changed = true; }
+    if (now >= startAt) {
+      p.auctionStatus = 'open';
+      changed = true;
+      const subs = await Sub.find();
+      const payload = JSON.stringify({ title: '🔨 オークション開始！', body: p.emoji + ' ' + p.name + ' のオークションが始まりました' });
+      subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
+    }
   }
   if (p.auctionStatus === 'open' && p.auctionEnd && now >= new Date(p.auctionEnd)) {
     const bids = await Bid.find({ productId: p._id }).sort({ amount: -1 });
