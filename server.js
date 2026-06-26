@@ -170,6 +170,59 @@ const bidSchema = new mongoose.Schema({
 });
 const Bid = mongoose.model('Bid', bidSchema);
 
+// 思い出らん
+const memorySchema = new mongoose.Schema({
+  user: { type: String, required: true },
+  text: { type: String, default: '' },
+  img: { type: String, default: null },
+  likes: { type: [String], default: [] },
+  comments: { type: [{ user: String, text: String, createdAt: { type: Date, default: Date.now } }], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+const Memory = mongoose.model('Memory', memorySchema);
+
+app.get('/api/memories', async (req, res) => {
+  const memories = await Memory.find().sort({ createdAt: -1 });
+  res.json(memories);
+});
+
+app.post('/api/memories', async (req, res) => {
+  const { user, text, img } = req.body;
+  if (!user || (!text && !img)) return res.status(400).json({ error: 'テキストか画像を入力してください' });
+  const m = await Memory.create({ user, text: text || '', img: img || null });
+  res.json(m);
+});
+
+app.delete('/api/memories/:id', async (req, res) => {
+  const { requester } = req.body;
+  const m = await Memory.findById(req.params.id);
+  if (!m) return res.status(404).json({ error: '投稿が見つかりません' });
+  if (m.user !== requester) return res.status(403).json({ error: '削除権限がありません' });
+  await m.deleteOne();
+  res.json({ ok: true });
+});
+
+app.post('/api/memories/:id/like', async (req, res) => {
+  const { user } = req.body;
+  const m = await Memory.findById(req.params.id);
+  if (!m) return res.status(404).json({ error: '投稿が見つかりません' });
+  const i = m.likes.indexOf(user);
+  if (i > -1) m.likes.splice(i, 1);
+  else m.likes.push(user);
+  await m.save();
+  res.json({ likes: m.likes });
+});
+
+app.post('/api/memories/:id/comments', async (req, res) => {
+  const { user, text } = req.body;
+  if (!text) return res.status(400).json({ error: 'コメントを入力してください' });
+  const m = await Memory.findById(req.params.id);
+  if (!m) return res.status(404).json({ error: '投稿が見つかりません' });
+  m.comments.push({ user, text });
+  await m.save();
+  res.json(m.comments);
+});
+
 // オークション状態を「今の時刻」に合わせて進める（タイマーが止まってても呼ばれた時点で補正する）
 async function tickAuction(p) {
   if (!p.isAuction) return p;

@@ -143,6 +143,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 <div class="tab-bar">
   <div class="tab active" data-tab="home" id="tab-btn-home">🏠 ホーム</div>
   <div class="tab" data-tab="hoshii">❤️ ほしい！</div>
+  <div class="tab" data-tab="memories">💭 思い出</div>
   <div class="tab" data-tab="profile">👤 プロフィール</div>
 </div>
 
@@ -155,6 +156,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 </div>
 <div id="tab-hoshii" class="page">
   <div class="product-grid" id="hoshii-grid" style="padding-top:8px"></div>
+</div>
+<div id="tab-memories" class="page">
+  <div id="memory-composer" style="padding:12px"></div>
+  <div id="memories-list" style="padding:0 12px"></div>
 </div>
 <div id="tab-profile" class="page"><h2 style="font-size:15px;font-weight:700;margin:16px 0 10px">📄 契約書一覧</h2><div id="contracts-list"></div>
   <div id="profile-content"></div>
@@ -495,6 +500,118 @@ async function loadProducts(){
       if(pid && products.find(p=>p._id===pid)) openDetail(pid);
     }
   }catch(e){ $('product-grid').innerHTML='<div class="empty"><i class="ti ti-wifi-off"></i><p>読み込みに失敗しました</p></div>'; }
+}
+
+// ---- 思い出らん ----
+let memoryPendingImg = null;
+
+function renderMemoryComposer(){
+  const c = $('memory-composer');
+  if(!c) return;
+  if(!session){
+    c.innerHTML = '<p style="font-size:13px;color:#bbb;text-align:center;padding:10px">ログインすると投稿できます</p>';
+    return;
+  }
+  c.innerHTML = `
+    <div style="background:#fafafa;border-radius:12px;padding:12px">
+      <textarea id="mem-text" class="inp" rows="3" placeholder="思い出を投稿しよう..." style="margin-bottom:8px"></textarea>
+      <div id="mem-img-preview" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label class="act-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+          <i class="ti ti-camera-plus"></i> 画像
+          <input type="file" id="mem-img-input" accept="image/*" style="display:none" onchange="onMemoryImgChange(this)">
+        </label>
+        <button class="btn-p" style="flex:1" onclick="submitMemory()">投稿する</button>
+      </div>
+    </div>
+  `;
+}
+
+async function onMemoryImgChange(input){
+  const file = input.files[0];
+  if(!file) return;
+  memoryPendingImg = await compressImage(file);
+  $('mem-img-preview').innerHTML = `<div style="position:relative;width:100px;height:100px"><img src="${memoryPendingImg}" style="width:100%;height:100%;object-fit:cover;border-radius:8px"><button onclick="memoryPendingImg=null;renderMemoryComposer();" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px">×</button></div>`;
+}
+
+async function submitMemory(){
+  const text = $('mem-text').value.trim();
+  if(!text && !memoryPendingImg){ toast('テキストか画像を入力してください'); return; }
+  try{
+    await api('POST', '/memories', { user: session.name, text, img: memoryPendingImg });
+    memoryPendingImg = null;
+    toast('投稿しました！');
+    renderMemoryComposer();
+    renderMemories();
+  }catch(e){ toast(e.message); }
+}
+
+async function renderMemories(){
+  renderMemoryComposer();
+  const list = $('memories-list');
+  if(!list) return;
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try{
+    const memories = await api('GET', '/memories');
+    if(!memories.length){ list.innerHTML = '<div class="empty" style="padding:60px 20px"><i class="ti ti-photo"></i><p>まだ思い出がありません</p></div>'; return; }
+    list.innerHTML = memories.map(m => {
+      const liked = session && m.likes.includes(session.name);
+      const isMine = session && m.user === session.name;
+      const time = new Date(m.createdAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `
+      <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;font-size:13px">${esc(m.user)}</span>
+          <span style="font-size:11px;color:#999">${time}${isMine?` <button onclick="deleteMemory('${m._id}')" style="border:none;background:none;color:#bbb;cursor:pointer;margin-left:6px"><i class="ti ti-trash"></i></button>`:''}</span>
+        </div>
+        ${m.text ? `<p style="font-size:14px;line-height:1.6;white-space:pre-wrap;margin-bottom:8px">${esc(m.text)}</p>` : ''}
+        ${m.img ? `<img src="${m.img}" style="width:100%;border-radius:8px;margin-bottom:8px">` : ''}
+        <div style="display:flex;gap:14px;font-size:12px;color:#999">
+          <span style="cursor:pointer;${liked?'color:var(--cr);font-weight:700':''}" onclick="toggleMemoryLike('${m._id}')"><i class="ti ti-heart"></i> ${m.likes.length}</span>
+          <span style="cursor:pointer" onclick="toggleMemoryComments('${m._id}')"><i class="ti ti-message"></i> ${m.comments.length}</span>
+        </div>
+        <div id="mem-comments-${m._id}" style="display:none;margin-top:10px">
+          ${m.comments.map(c => `<div style="font-size:12px;margin-bottom:4px"><b>${esc(c.user)}</b>: ${esc(c.text)}</div>`).join('')}
+          ${session ? `<div style="display:flex;gap:6px;margin-top:6px">
+            <input id="mem-comment-input-${m._id}" class="inp" style="margin:0;flex:1;font-size:12px;padding:6px 10px" placeholder="コメントする...">
+            <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="submitMemoryComment('${m._id}')">送信</button>
+          </div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ list.innerHTML = '<div class="empty"><p>読み込みに失敗しました</p></div>'; }
+}
+
+function toggleMemoryComments(id){
+  const el = $('mem-comments-' + id);
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function toggleMemoryLike(id){
+  if(!session){ openAuth(); return; }
+  try{
+    await api('POST', `/memories/${id}/like`, { user: session.name });
+    renderMemories();
+  }catch(e){ toast(e.message); }
+}
+
+async function submitMemoryComment(id){
+  const input = $('mem-comment-input-' + id);
+  const text = input.value.trim();
+  if(!text) return;
+  try{
+    await api('POST', `/memories/${id}/comments`, { user: session.name, text });
+    renderMemories();
+  }catch(e){ toast(e.message); }
+}
+
+async function deleteMemory(id){
+  if(!confirm('この投稿を削除しますか？')) return;
+  try{
+    await api('DELETE', `/memories/${id}`, { requester: session.name });
+    toast('削除しました');
+    renderMemories();
+  }catch(e){ toast(e.message); }
 }
 
 // ---- プロフィール ----
@@ -884,6 +1001,7 @@ document.querySelectorAll('.tab').forEach(t => {
     $('tab-'+t.dataset.tab).classList.add('active');
     if(t.dataset.tab==='hoshii') renderHoshii();
     if(t.dataset.tab==='profile') renderProfile();
+    if(t.dataset.tab==='memories') renderMemories();
     if(t.dataset.tab==='home') clearBadge();
   };
 });
