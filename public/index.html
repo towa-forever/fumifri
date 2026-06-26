@@ -161,7 +161,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
   <div id="memory-composer" style="padding:12px"></div>
   <div id="memories-list" style="padding:0 12px"></div>
 </div>
-<div id="tab-profile" class="page"><h2 style="font-size:15px;font-weight:700;margin:16px 0 10px">📄 契約書一覧</h2><div id="contracts-list"></div>
+<div id="tab-profile" class="page">
+  <button id="contracts-toggle-btn" onclick="toggleContractsList()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:#fafafa;border:none;border-radius:10px;padding:12px 14px;margin:16px 0 0;font-size:14px;font-weight:700;cursor:pointer">
+    <span>📄 契約書一覧 <span id="contracts-unsigned-badge"></span></span>
+    <i class="ti ti-chevron-down" id="contracts-chevron"></i>
+  </button>
+  <div id="contracts-list" style="display:none;margin-top:8px;margin-bottom:10px"></div>
   <div id="profile-content"></div>
 </div>
 
@@ -614,6 +619,15 @@ async function deleteMemory(id){
   }catch(e){ toast(e.message); }
 }
 
+function toggleContractsList(){
+  const el = $('contracts-list');
+  const chevron = $('contracts-chevron');
+  if(!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if(chevron) chevron.className = isOpen ? 'ti ti-chevron-down' : 'ti ti-chevron-up';
+}
+
 // ---- プロフィール ----
 async function renderProfile(){
   const c = $('profile-content');
@@ -624,14 +638,25 @@ async function renderProfile(){
   if(cl){
     try{
       const contracts = await fetch('/api/contracts?user=' + encodeURIComponent(session.name)).then(r=>r.json());
-      cl.innerHTML = contracts.length ? contracts.map(ct => `
-        <div class="mini-pcard" style="cursor:pointer" onclick="openContractSign('${ct._id}')">
+      const needsMySign = ct => (ct.seller === session.name && !ct.sellerSigned) || (ct.buyer === session.name && !ct.buyerSigned);
+      const unsignedCount = contracts.filter(needsMySign).length;
+      const badge = $('contracts-unsigned-badge');
+      if(badge) badge.innerHTML = unsignedCount ? `<span style="background:var(--cr);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${unsignedCount}</span>` : '';
+
+      const sorted = contracts.slice().sort((a,b) => (needsMySign(b)?1:0) - (needsMySign(a)?1:0));
+      cl.innerHTML = sorted.length ? sorted.map(ct => {
+        const mine = needsMySign(ct);
+        const done = ct.sellerSigned && ct.buyerSigned;
+        const statusHtml = done ? '<span style="color:green">✅ 契約成立</span>' : mine ? '<span style="color:var(--cr);font-weight:700">✍️ あなたのサインが必要です</span>' : '<span style="color:#e08a00">⏳ 相手のサイン待ち</span>';
+        return `
+        <div class="mini-pcard" style="cursor:pointer;${mine?'background:#fff3f3;border:1px solid var(--cr)':''}" onclick="openContractSign('${ct._id}')">
           <div class="mini-pcard-body" style="padding:10px 4px">
             <div class="mini-pcard-name">${esc(ct.productName)}</div>
             <div style="font-size:12px;color:#999;margin-top:2px">${esc(ct.seller)} → ${esc(ct.buyer)}　¥${ct.price.toLocaleString()}</div>
-            <div style="font-size:12px;margin-top:4px">${ct.sellerSigned && ct.buyerSigned ? '<span style="color:green">✅ 契約成立</span>' : '<span style="color:#e08a00">⏳ サイコト</span>'}</div>
+            <div style="font-size:12px;margin-top:4px">${statusHtml}</div>
           </div>
-        </div>`).join('') : '<p style="font-size:13px;color:#bbb;margin-bottom:14px">まだ契約書はありません</p>';
+        </div>`;
+      }).join('') : '<p style="font-size:13px;color:#bbb;margin-bottom:14px">まだ契約書はありません</p>';
     }catch(e){ cl.innerHTML = '<p style="font-size:13px;color:#bbb">読み込みに失敗しました</p>'; }
   }
 
