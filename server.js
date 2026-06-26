@@ -85,9 +85,19 @@ app.post('/api/subscribe', async (req, res) => {
 });
 
 app.get('/api/products', async (req, res) => {
-  let products = await Product.find().sort({ createdAt: -1 });
-  await tickAuctions(products);
-  res.json(products.map(p => p.toObject()));
+  let products = await Product.find().sort({ createdAt: -1 }).lean();
+  const now = new Date();
+  const toFlip = [];
+  for (const p of products) {
+    if (p.isAuction && p.auctionStatus === 'scheduled' && p.auctionStartDate && p.auctionStartTime) {
+      const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00+09:00');
+      if (now >= startAt) { p.auctionStatus = 'open'; toFlip.push(p._id); }
+    }
+  }
+  if (toFlip.length) {
+    Product.updateMany({ _id: { $in: toFlip } }, { auctionStatus: 'open' }).catch(()=>{});
+  }
+  res.json(products);
 });
 
 app.post('/api/products', async (req, res) => {
