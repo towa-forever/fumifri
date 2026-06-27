@@ -117,6 +117,12 @@ app.post('/api/products', async (req, res) => {
   const subs = await Sub.find();
   const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
+  try {
+    const users = await User.find({}, 'name');
+    const text = `${p.emoji||'📦'} 「${p.name}」が新着出品されました`;
+    const docs = users.filter(u => u.name !== owner).map(u => ({ user: u.name, type: 'new-product', text, productId: p._id }));
+    if (docs.length) await Notification.insertMany(docs);
+  } catch (e) {}
   res.json(p);
 });
 
