@@ -59,9 +59,12 @@ const subSchema = new mongoose.Schema({ endpoint: String, keys: Object });
 const Sub = mongoose.model('Sub', subSchema);
 const Product = mongoose.model('Product', productSchema);
 
+const UNSAFE_CHARS = /['"`\\<>]/;
+
 app.post('/api/register', async (req, res) => {
   const { name, pass, emoji, bio } = req.body;
   if (!name || !pass) return res.status(400).json({ error: '名前とパスワードが必要です' });
+  if (UNSAFE_CHARS.test(name)) return res.status(400).json({ error: 'ニックネームに使用できない文字が含まれています（\' " ` < > は使えません）' });
   try {
     const user = await User.create({ name, pass, emoji, bio });
     res.json({ name: user.name, emoji: user.emoji, bio: user.bio });
@@ -103,6 +106,7 @@ app.get('/api/products', async (req, res) => {
 app.post('/api/products', async (req, res) => {
   const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner, isAuction, auctionStartDate, auctionStartTime, auctionEndDate, auctionEndTime } = req.body;
   if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
+  if (UNSAFE_CHARS.test(name)) return res.status(400).json({ error: '商品名に使用できない文字が含まれています' });
   let auctionEnd = null;
   let auctionStatus = 'none';
   const endDate = auctionEndDate || auctionStartDate;
@@ -131,6 +135,7 @@ app.put('/api/products/:id', async (req, res) => {
   const p = await Product.findById(req.params.id);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   if (p.owner !== requester) return res.status(403).json({ error: '編集権限がありません' });
+  if (UNSAFE_CHARS.test(name)) return res.status(400).json({ error: '商品名に使用できない文字が含まれています' });
 
   const endDate = auctionEndDate || auctionStartDate;
   let auctionEnd = p.auctionEnd;
@@ -210,6 +215,57 @@ const notificationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Notification = mongoose.model('Notification', notificationSchema);
+
+// フリーチャット
+const chatSchema = new mongoose.Schema({
+  user: { type: String, required: true },
+  text: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const ChatMessage = mongoose.model('ChatMessage', chatSchema);
+
+app.get('/api/chat', async (req, res) => {
+  const msgs = await ChatMessage.find().sort({ createdAt: -1 }).limit(100);
+  res.json(msgs.reverse());
+});
+
+app.post('/api/chat', async (req, res) => {
+  const { user, text } = req.body;
+  if (!user || !text || !text.trim()) return res.status(400).json({ error: 'メッセージを入力してください' });
+  const msg = await ChatMessage.create({ user, text: text.trim().slice(0, 500) });
+  res.json(msg);
+});
+
+// 改善連絡・意見掲示板
+const feedbackSchema = new mongoose.Schema({
+  user: { type: String, required: true },
+  text: { type: String, required: true },
+  replies: { type: [{ user: String, text: String, createdAt: { type: Date, default: Date.now } }], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+app.get('/api/feedback', async (req, res) => {
+  const list = await Feedback.find().sort({ createdAt: -1 });
+  res.json(list);
+});
+
+app.post('/api/feedback', async (req, res) => {
+  const { user, text } = req.body;
+  if (!user || !text || !text.trim()) return res.status(400).json({ error: '内容を入力してください' });
+  const fb = await Feedback.create({ user, text: text.trim() });
+  res.json(fb);
+});
+
+app.post('/api/feedback/:id/reply', async (req, res) => {
+  const { user, text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: '内容を入力してください' });
+  const fb = await Feedback.findById(req.params.id);
+  if (!fb) return res.status(404).json({ error: '投稿が見つかりません' });
+  fb.replies.push({ user, text: text.trim() });
+  await fb.save();
+  res.json(fb);
+});
 
 async function notify(user, type, text, productId) {
   if (!user) return;
