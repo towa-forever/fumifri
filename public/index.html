@@ -1144,7 +1144,7 @@ async function openSelectBuyer(productId) {
       <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">入札一覧</h3>
       ${bids.length === 0 ? '<p style="color:#999;font-size:13px">まだ入札なし</p>' : bids.map((b,i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${i===0?'#fff3f3':'#fafafa'};border-radius:10px;margin-bottom:8px">
-          <span style="font-weight:700">${i===0?'👑 ':''}${b.user}</span>
+          <span style="font-weight:700">${i===0?'👑 ':''}${esc(b.user)}</span>
           <span style="font-weight:700;color:var(--cr)">¥${b.amount.toLocaleString()}</span>
           <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="confirmSelectBuyer('${productId}','${b.user}')">選ぶ</button>
         </div>`).join('')}
@@ -1154,7 +1154,7 @@ async function openSelectBuyer(productId) {
       <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">ほしい！リストから選ぶ</h3>
       ${hoshiiList.length === 0 ? '<p style="color:#999;font-size:13px">ほしい！した人がいません</p>' : hoshiiList.map(u => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#fafafa;border-radius:10px;margin-bottom:8px">
-          <span style="font-weight:700">${u}</span>
+          <span style="font-weight:700">${esc(u)}</span>
           <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="confirmSelectBuyer('${productId}','${u}')">選ぶ</button>
         </div>`).join('')}
       <hr style="margin:14px 0">
@@ -1179,7 +1179,7 @@ async function confirmSelectBuyer(productId, buyer) {
     closeModal('select-buyer-modal');
     await openContractForm(productId, loginUser, buyer);
   } catch (e) {
-    alert('DEBUG ERROR: ' + e.message);
+    toast('エラーが発生しました: ' + e.message);
   }
 }
 
@@ -1235,10 +1235,10 @@ async function openContractSign(contractId) {
     <div style="border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;line-height:1.9">
       <h2 style="text-align:center;font-size:16px;font-weight:700;margin-bottom:2px">売買契約書</h2>
       <p style="text-align:center;font-size:11px;color:#999;margin-bottom:14px">契約番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</p>
-      <p style="margin-bottom:10px">出品者（甲）「<b>${c.seller}</b>」と購入者（乙）「<b>${c.buyer}</b>」は、以下の通り物品の売買契約を締結する。</p>
+      <p style="margin-bottom:10px">出品者（甲）「<b>${esc(c.seller)}</b>」と購入者（乙）「<b>${esc(c.buyer)}</b>」は、以下の通り物品の売買契約を締結する。</p>
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第1条（売買物件）</p>
-      <p>品物: <b>${c.productName}</b>　売買代金: <b>¥${c.price.toLocaleString()}</b></p>
+      <p>品物: <b>${esc(c.productName)}</b>　売買代金: <b>¥${c.price.toLocaleString()}</b></p>
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第2条（支払い）</p>
       <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
@@ -1247,18 +1247,18 @@ async function openContractSign(contractId) {
       <p>甲は乙に対し、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}にて、${c.handoverMethod || '対面'}により物品を引き渡すものとする。</p>
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第4条（キャンセル）</p>
-      <p>${c.cancellationPolicy || ''}</p>
+      <p>${esc(c.cancellationPolicy || '')}</p>
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第5条（特約事項）</p>
-      <p>${c.memo || 'なし'}</p>
+      <p>${esc(c.memo || 'なし')}</p>
     </div>
     <div style="margin-bottom:14px">
-      <p style="font-size:13px;font-weight:700;margin-bottom:6px">甲（出品者）サイン (${c.seller})</p>
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">甲（出品者）サイン (${esc(c.seller)})</p>
       ${c.sellerSigned ? '<p style="color:green">✅ ' + c.sellerSign + (c.sellerSignedAt ? '　<span style=\"color:#999;font-size:11px\">' + new Date(c.sellerSignedAt).toLocaleString('ja-JP') + '</span>' : '') + '</p>' :
         loginUser === c.seller ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
     </div>
     <div>
-      <p style="font-size:13px;font-weight:700;margin-bottom:6px">乙（購入者）サイン (${c.buyer})</p>
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">乙（購入者）サイン (${esc(c.buyer)})</p>
       ${c.buyerSigned ? '<p style="color:green">✅ ' + c.buyerSign + (c.buyerSignedAt ? '　<span style=\"color:#999;font-size:11px\">' + new Date(c.buyerSignedAt).toLocaleString('ja-JP') + '</span>' : '') + '</p>' :
         loginUser === c.buyer ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
     </div>
@@ -1287,21 +1287,21 @@ async function printContract(contractId) {
     </head><body>
       <h1>売買契約書</h1>
       <div class="meta">契約番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</div>
-      <p>出品者（甲）「<b>${c.seller}</b>」と購入者（乙）「<b>${c.buyer}</b>」は、以下の通り物品の売買契約を締結する。</p>
+      <p>出品者（甲）「<b>${esc(c.seller)}</b>」と購入者（乙）「<b>${esc(c.buyer)}</b>」は、以下の通り物品の売買契約を締結する。</p>
       <h2>第1条（売買物件）</h2>
-      <p>品物: ${c.productName}<br>売買代金: ¥${c.price.toLocaleString()}</p>
+      <p>品物: ${esc(c.productName)}<br>売買代金: ¥${c.price.toLocaleString()}</p>
       <h2>第2条（支払い）</h2>
       <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
       <h2>第3条（受け渡し）</h2>
       <p>甲は乙に対し、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}にて、${c.handoverMethod || '対面'}により物品を引き渡すものとする。</p>
       <h2>第4条（キャンセル）</h2>
-      <p>${c.cancellationPolicy || ''}</p>
+      <p>${esc(c.cancellationPolicy || '')}</p>
       <h2>第5条（特約事項）</h2>
-      <p>${c.memo || 'なし'}</p>
+      <p>${esc(c.memo || 'なし')}</p>
       <p style="margin-top:20px">以上の内容に甲乙双方合意のうえ、本契約を締結する。</p>
       <div class="sign-area">
-        <div class="sign-box">甲（出品者）${c.seller}<br><br>${c.sellerSign || ''}</div>
-        <div class="sign-box">乙（購入者）${c.buyer}<br><br>${c.buyerSign || ''}</div>
+        <div class="sign-box">甲（出品者）${esc(c.seller)}<br><br>${esc(c.sellerSign || '')}</div>
+        <div class="sign-box">乙（購入者）${esc(c.buyer)}<br><br>${esc(c.buyerSign || '')}</div>
       </div>
     </body></html>
   `);
@@ -1336,28 +1336,6 @@ async function submitBid(productId) {
   if (res.error) return toast(res.error);
   toast('入札しました！');
   renderAuctionBox(productId);
-}
-
-// 契約書一覧を表示
-async function loadContracts() {
-  if (!loginUser) return;
-  const contracts = await fetch('/api/contracts?user=' + loginUser).then(r => r.json());
-  const el = document.getElementById('contracts-list');
-  if (!el) return;
-  if (contracts.length === 0) {
-    el.innerHTML = '<p style="color:#999;font-size:13px;text-align:center;padding:20px">契約書はまだありません</p>';
-    return;
-  }
-  el.innerHTML = contracts.map(c => `
-    <div style="background:#fafafa;border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer" onclick="openContractSign('${c._id}')">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <p style="font-weight:700;font-size:14px">${c.productName}</p>
-        <p style="font-weight:700;color:var(--cr)">¥${c.price.toLocaleString()}</p>
-      </div>
-      <p style="font-size:12px;color:#999;margin-top:4px">${c.seller} → ${c.buyer}</p>
-      <p style="font-size:12px;margin-top:4px">${c.sellerSigned && c.buyerSigned ? '✅ 契約成立' : '⏳ サイン待ち'}</p>
-    </div>
-  `).join('');
 }
 
 
