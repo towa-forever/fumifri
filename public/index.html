@@ -335,7 +335,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 </div>
 
 <script>
-const CATS = ['全て','シャーペン','ボールペン・他','ノート・紙','消しゴム・修正','ハサミ・テープ','スタンプ・シール','ファイル・バインダー','ペンケース','その他'];
+const CATS = ['全て','未売却','シャーペン','ボールペン・他','ノート・紙','消しゴム・修正','ハサミ・テープ','スタンプ・シール','ファイル・バインダー','ペンケース','その他'];
 const EMOJIS = ['✏️','🖊️','🖋️','📝','📒','📔','📓','📏','📐','✂️','📌','🖇️','🗂️','📎','🖍️'];
 const VAPID_PUB = 'BP9EY021Qvgg721Wh9E_bzRB1tkO240PEuP9ul-Rnf7L0ehtChvySNB-4OKoca3gR7-8YotVSPfweMU2I9yAQ_A';
 
@@ -532,7 +532,8 @@ function clearBadge(){
 function getFiltered(){
   const q = ($('search-input')?.value||'').toLowerCase();
   return products.filter(p => {
-    if(selCat !== '全て' && p.cat !== selCat) return false;
+    if(selCat === '未売却' && p.sold) return false;
+    else if(selCat !== '全て' && selCat !== '未売却' && p.cat !== selCat) return false;
     if(q && !p.name.toLowerCase().includes(q) && !p.desc.toLowerCase().includes(q)) return false;
     return true;
   });
