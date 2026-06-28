@@ -703,6 +703,7 @@ async function deleteMemory(id){
 
 // ---- フリーチャット ----
 let chatPollInterval = null;
+let chatReplyTarget = null;
 function renderChatInput(){
   const row = $('chat-input-row');
   if(!row) return;
@@ -711,9 +712,52 @@ function renderChatInput(){
     return;
   }
   row.innerHTML = `
-    <input id="chat-text-input" class="inp" style="margin:0;flex:1" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitChat();}">
-    <button class="btn-p" style="padding:0 16px" onclick="submitChat()"><i class="ti ti-send"></i></button>
+    <div style="width:100%">
+      <div id="chat-reply-preview"></div>
+      <div style="display:flex;gap:6px">
+        <input id="chat-text-input" class="inp" style="margin:0;flex:1" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitChat();}">
+        <button class="btn-p" style="padding:0 16px" onclick="submitChat()"><i class="ti ti-send"></i></button>
+      </div>
+    </div>
   `;
+  renderChatReplyPreview();
+}
+
+function renderChatReplyPreview(){
+  const el = $('chat-reply-preview');
+  if(!el) return;
+  el.innerHTML = chatReplyTarget ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#f5f5f5;border-radius:8px;padding:6px 10px;margin-bottom:6px;font-size:12px">
+      <span style="color:#888">${esc(chatReplyTarget.user)}さんに返信: ${esc(chatReplyTarget.text.slice(0,40))}</span>
+      <button onclick="chatReplyTarget=null;renderChatReplyPreview();" style="border:none;background:none;color:#999;cursor:pointer">×</button>
+    </div>` : '';
+}
+
+function setChatReply(id, user, text){
+  chatReplyTarget = { id, user, text };
+  renderChatReplyPreview();
+  $('chat-text-input').focus();
+}
+
+async function markChatRead(msgs){
+  if(!session) return;
+  const unreadIds = msgs.filter(m => !m.readBy.includes(session.name)).map(m => m._id);
+  if(!unreadIds.length) return;
+  try{ await api('POST', '/chat/read', { user: session.name, ids: unreadIds }); }catch(e){}
+}
+
+function showReadBy(readBy){
+  const others = readBy.filter(u => !session || u !== session.name);
+  if(!others.length){ toast('まだ他の人は既読していません'); return; }
+  toast('既読: ' + others.join(', '));
+}
+
+async function deleteChatMessage(id){
+  if(!confirm('このメッセージを削除しますか？')) return;
+  try{
+    await api('DELETE', `/chat/${id}`, { requester: session.name });
+    loadChatMessages();
+  }catch(e){ toast(e.message); }
 }
 
 async function renderChat(){
@@ -735,13 +779,24 @@ async function loadChatMessages(){
     box.innerHTML = msgs.length ? msgs.map(m => {
       const mine = session && m.user === session.name;
       const time = new Date(m.createdAt).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'});
+      const readCount = m.readBy.filter(u => u !== m.user).length;
+      const safeUser = esc(m.user).replace(/'/g, '');
       return `<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};margin-bottom:10px">
         ${!mine?`<div style="font-size:11px;color:#999;margin-bottom:2px;margin-left:4px">${esc(m.user)}</div>`:''}
-        <div style="max-width:75%;background:${mine?'var(--cr)':'#f0f0f0'};color:${mine?'#fff':'#333'};padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${esc(m.text)}</div>
-        <div style="font-size:10px;color:#bbb;margin-top:2px">${time}</div>
+        <div style="max-width:75%">
+          ${m.replyTo && m.replyTo.id ? `<div style="font-size:11px;color:#999;background:#f5f5f5;border-radius:8px 8px 0 0;padding:4px 10px;border-bottom:1px solid #e8e8e8">↩️ ${esc(m.replyTo.user)}: ${esc((m.replyTo.text||'').slice(0,40))}</div>` : ''}
+          <div style="background:${mine?'var(--cr)':'#f0f0f0'};color:${mine?'#fff':'#333'};padding:8px 12px;border-radius:${m.replyTo && m.replyTo.id ? '0 0 14px 14px' : '14px'};font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${esc(m.text)}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:2px">
+          <span style="font-size:10px;color:#bbb">${time}</span>
+          <span style="font-size:10px;color:#3b9c3b;cursor:pointer" onclick='showReadBy(${JSON.stringify(m.readBy)})'>既読${readCount}</span>
+          <span style="font-size:10px;color:#999;cursor:pointer" onclick='setChatReply("${m._id}","${safeUser}",${JSON.stringify(m.text)})'>返信</span>
+          ${mine ? `<span style="font-size:10px;color:#c66;cursor:pointer" onclick="deleteChatMessage('${m._id}')">削除</span>` : ''}
+        </div>
       </div>`;
     }).join('') : '<div class="empty" style="padding:60px 20px"><i class="ti ti-message-circle-2"></i><p>まだメッセージがありません</p></div>';
     if(wasAtBottom) box.scrollTop = box.scrollHeight;
+    markChatRead(msgs);
   }catch(e){}
 }
 
@@ -750,8 +805,11 @@ async function submitChat(){
   const text = input.value.trim();
   if(!text) return;
   input.value = '';
+  const replyToId = chatReplyTarget ? chatReplyTarget.id : null;
+  chatReplyTarget = null;
+  renderChatReplyPreview();
   try{
-    await api('POST', '/chat', { user: session.name, text });
+    await api('POST', '/chat', { user: session.name, text, replyToId });
     await loadChatMessages();
     const box = $('chat-messages');
     box.scrollTop = box.scrollHeight;

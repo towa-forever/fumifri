@@ -220,6 +220,12 @@ const Notification = mongoose.model('Notification', notificationSchema);
 const chatSchema = new mongoose.Schema({
   user: { type: String, required: true },
   text: { type: String, required: true },
+  replyTo: {
+    id: { type: mongoose.Schema.Types.ObjectId, default: null },
+    user: { type: String, default: null },
+    text: { type: String, default: null }
+  },
+  readBy: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now }
 });
 const ChatMessage = mongoose.model('ChatMessage', chatSchema);
@@ -230,10 +236,31 @@ app.get('/api/chat', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { user, text } = req.body;
+  const { user, text, replyToId } = req.body;
   if (!user || !text || !text.trim()) return res.status(400).json({ error: 'メッセージを入力してください' });
-  const msg = await ChatMessage.create({ user, text: text.trim().slice(0, 500) });
+  let replyTo = { id: null, user: null, text: null };
+  if (replyToId) {
+    const orig = await ChatMessage.findById(replyToId);
+    if (orig) replyTo = { id: orig._id, user: orig.user, text: orig.text.slice(0, 80) };
+  }
+  const msg = await ChatMessage.create({ user, text: text.trim().slice(0, 500), replyTo, readBy: [user] });
   res.json(msg);
+});
+
+app.delete('/api/chat/:id', async (req, res) => {
+  const { requester } = req.body;
+  const msg = await ChatMessage.findById(req.params.id);
+  if (!msg) return res.status(404).json({ error: 'メッセージが見つかりません' });
+  if (msg.user !== requester) return res.status(403).json({ error: '削除権限がありません' });
+  await msg.deleteOne();
+  res.json({ ok: true });
+});
+
+app.post('/api/chat/read', async (req, res) => {
+  const { user, ids } = req.body;
+  if (!user || !Array.isArray(ids) || !ids.length) return res.json({ ok: true });
+  await ChatMessage.updateMany({ _id: { $in: ids } }, { $addToSet: { readBy: user } });
+  res.json({ ok: true });
 });
 
 // 改善連絡・意見掲示板
