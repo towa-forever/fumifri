@@ -203,7 +203,12 @@ app.post('/api/products/:id/comments', async (req, res) => {
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
   p.comments.push({ user, text });
   await p.save();
-  if (p.owner !== user) await notify(p.owner, 'comment', `${user}さんが「${p.name}」にコメントしました`, p._id);
+  const notifyTargets = new Set(p.comments.map(c => c.user));
+  notifyTargets.add(p.owner);
+  notifyTargets.delete(user);
+  for (const target of notifyTargets) {
+    await notify(target, 'comment', `${user}さんが「${p.name}」にコメントしました`, p._id);
+  }
   res.json(p.comments);
 });
 
@@ -265,6 +270,11 @@ app.post('/api/chat', async (req, res) => {
     if (orig) replyTo = { id: orig._id, user: orig.user, text: orig.text.slice(0, 80) };
   }
   const msg = await ChatMessage.create({ user, text: text.trim().slice(0, 500), replyTo, readBy: [user] });
+  try {
+    const users = await User.find({}, 'name');
+    const docs = users.filter(u => u.name !== user).map(u => ({ user: u.name, type: 'chat', text: `${user}さんがチャットに投稿しました: ${msg.text.slice(0,30)}` }));
+    if (docs.length) await Notification.insertMany(docs);
+  } catch (e) {}
   res.json(msg);
 });
 
@@ -322,6 +332,7 @@ app.post('/api/feedback/:id/reply', async (req, res) => {
   if (!fb) return res.status(404).json({ error: '投稿が見つかりません' });
   fb.replies.push({ user, text: text.trim() });
   await fb.save();
+  if (fb.user !== user) await notify(fb.user, 'feedback-reply', `あなたの投稿に運営から返信がありました`, null);
   res.json(fb);
 });
 

@@ -602,7 +602,7 @@ function renderMemoryComposer(){
   }
   c.innerHTML = `
     <div style="background:#fafafa;border-radius:12px;padding:12px">
-      <textarea id="mem-text" class="inp" rows="3" placeholder="思い出を投稿しよう..." style="margin-bottom:8px"></textarea>
+      <textarea id="mem-text" class="inp" rows="5" placeholder="思い出を投稿しよう..." style="margin-bottom:8px;min-height:110px;font-size:15px"></textarea>
       <div id="mem-img-preview" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:8px;align-items:center">
         <label class="act-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px">
@@ -716,7 +716,7 @@ function renderChatInput(){
     <div style="width:100%">
       <div id="chat-reply-preview"></div>
       <div style="display:flex;gap:6px">
-        <input id="chat-text-input" class="inp" style="margin:0;flex:1" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitChat();}">
+        <input id="chat-text-input" class="inp" style="margin:0;flex:1;padding:14px 14px;font-size:15px" placeholder="メッセージを入力..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitChat();}">
         <button class="btn-p" style="padding:0 16px" onclick="submitChat()"><i class="ti ti-send"></i></button>
       </div>
     </div>
@@ -827,7 +827,7 @@ function renderFeedbackComposer(){
   }
   c.innerHTML = `
     <div style="background:#fafafa;border-radius:12px;padding:12px">
-      <textarea id="fb-text" class="inp" rows="3" placeholder="改善してほしい点、不具合、要望など..." style="margin-bottom:8px"></textarea>
+      <textarea id="fb-text" class="inp" rows="5" placeholder="改善してほしい点、不具合、要望など..." style="margin-bottom:8px;min-height:110px;font-size:15px"></textarea>
       <button class="btn-p" style="width:100%" onclick="submitFeedback()">投稿する</button>
     </div>
   `;
