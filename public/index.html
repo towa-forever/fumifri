@@ -919,6 +919,49 @@ function toggleContractsList(){
 }
 
 // ---- プロフィール ----
+let profileEditOpen = false;
+
+async function onAvatarChange(input){
+  const file = input.files[0];
+  if(!file || !session) return;
+  try{
+    const b64 = await compressImage(file, 300, 0.8);
+    const pass = prompt('変更を確定するため、現在のパスワードを入力してください');
+    if(!pass) return;
+    const updated = await api('PUT', '/profile', { name: session.name, pass, avatar: b64 });
+    saveSession({ ...session, avatar: updated.avatar });
+    toast('アイコンを変更しました');
+    renderProfile();
+  }catch(e){ toast(e.message); }
+}
+
+function toggleProfileEdit(){
+  profileEditOpen = !profileEditOpen;
+  const box = $('profile-edit-box');
+  if(!box) return;
+  box.innerHTML = profileEditOpen ? `
+    <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px;text-align:left">
+      <label class="lbl">現在のパスワード</label>
+      <input type="password" id="pw-current" class="inp">
+      <label class="lbl">新しいパスワード（4文字以上）</label>
+      <input type="password" id="pw-new" class="inp">
+      <button class="btn-p" style="width:100%;margin-top:8px" onclick="submitPasswordChange()">変更する</button>
+    </div>
+  ` : '';
+}
+
+async function submitPasswordChange(){
+  const pass = $('pw-current').value;
+  const newPass = $('pw-new').value;
+  if(!pass || !newPass){ toast('両方入力してください'); return; }
+  try{
+    await api('POST', '/profile/change-password', { name: session.name, pass, newPass });
+    toast('パスワードを変更しました');
+    profileEditOpen = false;
+    renderProfile();
+  }catch(e){ toast(e.message); }
+}
+
 async function renderProfile(){
   const c = $('profile-content');
   const cl = $('contracts-list');
@@ -962,9 +1005,14 @@ async function renderProfile(){
   }
 
   c.innerHTML = `<div class="prof-page">
-    <div class="prof-avatar">${session.emoji}</div>
+    <div class="prof-avatar" style="cursor:pointer;position:relative;overflow:hidden" onclick="$('avatar-file-input').click()">
+      ${session.avatar ? `<img src="${session.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : session.emoji}
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;font-size:10px;text-align:center;padding:2px 0">変更</div>
+    </div>
+    <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="onAvatarChange(this)">
     <div class="prof-name">${esc(session.name)}</div>
-    <div class="prof-bio">${esc(session.bio||'ひとことメモなし')}</div>
+    <button onclick="toggleProfileEdit()" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer;margin-bottom:10px"><i class="ti ti-lock"></i> パスワードを変更する</button>
+    <div id="profile-edit-box"></div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-num">${myItems.length}</div><div class="stat-lbl">出品数</div></div>
       <div class="stat-box"><div class="stat-num">${myItems.filter(p=>p.sold).length}</div><div class="stat-lbl">売り切れ</div></div>

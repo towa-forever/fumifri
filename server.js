@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
   pass: { type: String, required: true },
   emoji: { type: String, default: '✏️' },
   bio: { type: String, default: '' },
+  avatar: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -78,8 +79,28 @@ app.post('/api/login', async (req, res) => {
   const { name, pass } = req.body;
   const user = await User.findOne({ name, pass });
   if (!user) return res.status(401).json({ error: 'ニックネームまたはパスワードが違います' });
-  res.json({ name: user.name, emoji: user.emoji, bio: user.bio });
+  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
 });
+
+app.put('/api/profile', async (req, res) => {
+  const { name, pass, avatar } = req.body;
+  const user = await User.findOne({ name, pass });
+  if (!user) return res.status(401).json({ error: 'パスワードが正しくありません' });
+  if (avatar !== undefined) user.avatar = avatar;
+  await user.save();
+  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
+});
+
+app.post('/api/profile/change-password', async (req, res) => {
+  const { name, pass, newPass } = req.body;
+  if (!newPass || newPass.length < 4) return res.status(400).json({ error: '新しいパスワードは4文字以上にしてください' });
+  const user = await User.findOne({ name, pass });
+  if (!user) return res.status(401).json({ error: '現在のパスワードが正しくありません' });
+  user.pass = newPass;
+  await user.save();
+  res.json({ ok: true });
+});
+
 
 app.post('/api/subscribe', async (req, res) => {
   const { endpoint, keys } = req.body;
