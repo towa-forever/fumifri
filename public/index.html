@@ -159,6 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
   <div class="tab" data-tab="memories">💭 思い出</div>
   <div class="tab" data-tab="chat">💬 チャット</div>
   <div class="tab" data-tab="feedback">💡 意見箱</div>
+  <div class="tab" data-tab="announcements">📢 お知らせ</div>
   <div class="tab" data-tab="profile">👤 プロフィール</div>
 </div>
 
@@ -186,6 +187,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
     <p style="font-size:13px;color:#888;margin-bottom:10px">サイトをもっと良くするための意見・要望をなんでも書いてください！</p>
     <div id="feedback-composer" style="margin-bottom:14px"></div>
     <div id="feedback-list"></div>
+  </div>
+</div>
+<div id="tab-announcements" class="page">
+  <div style="padding:12px">
+    <div id="announce-admin-toggle-row"></div>
+    <div id="announce-composer" style="margin-bottom:14px"></div>
+    <div id="announce-list"></div>
   </div>
 </div>
 <div id="tab-profile" class="page">
@@ -318,6 +326,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
       <button class="close-btn" onclick="closeModal('contract-modal')"><i class="ti ti-x"></i></button>
     </div>
     <div id="contract-content"></div>
+  </div>
+</div>
+<div class="modal-bg" id="public-profile-modal" style="z-index:301">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2>👤 プロフィール</h2>
+      <button class="close-btn" onclick="closeModal('public-profile-modal')"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="public-profile-content"></div>
   </div>
 </div>
 
@@ -871,6 +888,71 @@ async function promptAdminMode(){
   }catch(e){ toast(e.message); }
 }
 
+function renderAnnounceAdminToggle(){
+  const el = $('announce-admin-toggle-row');
+  if(!el) return;
+  el.innerHTML = isAdminMode
+    ? `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff3f3;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--cr);font-weight:700">🔧 管理者モード中</span>
+        <button onclick="isAdminMode=false;adminPasswordCache='';renderAnnounceAdminToggle();renderAnnouncements();" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer">解除</button>
+      </div>`
+    : `<button onclick="promptAdminModeFor('announce')" style="border:none;background:none;color:#bbb;font-size:11px;cursor:pointer;margin-bottom:8px">🔧 管理者モードにする</button>`;
+}
+
+async function promptAdminModeFor(context){
+  const pw = prompt('管理者パスワードを入力してください');
+  if(!pw) return;
+  try{
+    await api('POST', '/admin/verify', { password: pw });
+    isAdminMode = true;
+    adminPasswordCache = pw;
+    toast('管理者モードになりました');
+    if(context === 'announce'){ renderAnnounceAdminToggle(); renderAnnouncements(); }
+    else { renderAdminToggle(); renderFeedback(); }
+  }catch(e){ toast(e.message); }
+}
+
+function renderAnnounceComposer(){
+  const c = $('announce-composer');
+  if(!c) return;
+  c.innerHTML = isAdminMode ? `
+    <div style="background:#fafafa;border-radius:12px;padding:12px">
+      <textarea id="announce-text" class="inp" rows="3" placeholder="お知らせ内容を入力..." style="margin-bottom:8px;min-height:90px"></textarea>
+      <button class="btn-p" style="width:100%" onclick="submitAnnouncement()">お知らせを投稿する</button>
+    </div>
+  ` : '';
+}
+
+async function submitAnnouncement(){
+  const text = $('announce-text').value.trim();
+  if(!text){ toast('内容を入力してください'); return; }
+  try{
+    await api('POST', '/announcements', { text, adminPassword: adminPasswordCache });
+    toast('お知らせを投稿しました');
+    renderAnnouncements();
+  }catch(e){ toast(e.message); }
+}
+
+async function renderAnnouncements(){
+  renderAnnounceAdminToggle();
+  renderAnnounceComposer();
+  const list = $('announce-list');
+  if(!list) return;
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try{
+    const items = await api('GET', '/announcements');
+    if(!items.length){ list.innerHTML = '<div class="empty" style="padding:60px 20px"><i class="ti ti-speakerphone"></i><p>まだお知らせはありません</p></div>'; return; }
+    list.innerHTML = items.map(a => {
+      const time = new Date(a.createdAt).toLocaleString('ja-JP', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `
+      <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;color:#999;margin-bottom:6px">📢 運営からのお知らせ・${time}</div>
+        <p style="font-size:14px;line-height:1.6;white-space:pre-wrap">${esc(a.text)}</p>
+      </div>`;
+    }).join('');
+  }catch(e){ list.innerHTML = '<div class="empty"><p>読み込みに失敗しました</p></div>'; }
+}
+
 async function renderFeedback(){
   renderFeedbackComposer();
   renderAdminToggle();
@@ -960,6 +1042,42 @@ async function submitPasswordChange(){
     profileEditOpen = false;
     renderProfile();
   }catch(e){ toast(e.message); }
+}
+
+async function openPublicProfile(name){
+  const content = $('public-profile-content');
+  content.innerHTML = '<div class="loading">読み込み中...</div>';
+  $('public-profile-modal').classList.add('open');
+  try{
+    const u = await api('GET', `/users/${encodeURIComponent(name)}/public`);
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ja-JP') : '';
+    const unsold = u.items.filter(p=>!p.sold);
+    content.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="prof-avatar" style="margin:0 auto 10px">
+          ${u.avatar ? `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (u.emoji||'📦')}
+        </div>
+        <div class="prof-name">${esc(u.name)}</div>
+        <p style="font-size:12px;color:#999">${joined} から利用</p>
+      </div>
+      <div class="stat-row" style="margin-bottom:16px">
+        <div class="stat-box"><div class="stat-num">${u.items.length}</div><div class="stat-lbl">出品数</div></div>
+        <div class="stat-box"><div class="stat-num">${unsold.length}</div><div class="stat-lbl">出品中</div></div>
+        <div class="stat-box"><div class="stat-num">${u.items.length-unsold.length}</div><div class="stat-lbl">売り切れ</div></div>
+      </div>
+      <div class="sec-box">
+        <h3>出品中の商品</h3>
+        ${unsold.length ? unsold.map(p=>`
+          <div class="mini-pcard" onclick="closeModal('public-profile-modal');openDetail('${p._id}')">
+            <div class="mini-pcard-img">${p.img?`<img src="${p.img}" alt="">`:p.emoji||'📦'}</div>
+            <div class="mini-pcard-body">
+              <div class="mini-pcard-name">${esc(p.name)}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--cr);margin-top:3px">¥${p.price.toLocaleString()}</div>
+            </div>
+          </div>`).join('') : '<p style="font-size:13px;color:#bbb">出品中の商品はありません</p>'}
+      </div>
+    `;
+  }catch(e){ content.innerHTML = '<p style="color:#bbb;font-size:13px">読み込みに失敗しました</p>'; }
 }
 
 async function renderProfile(){
@@ -1125,7 +1243,7 @@ function openDetail(id){
     </div>
     <div class="detail-price">¥${p.price.toLocaleString()}</div>
     <div class="detail-desc">${esc(p.desc)}</div>
-    <div class="detail-owner"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px"></i> 出品者: ${esc(p.owner)}</div>
+    <div class="detail-owner" style="cursor:pointer" onclick="openPublicProfile('${esc(p.owner)}')"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px"></i> 出品者: ${esc(p.owner)} <i class="ti ti-chevron-right" style="font-size:11px"></i></div>
     ${p.isAuction ? `<div id="auction-box" style="background:#fff8f0;border-radius:10px;padding:12px;margin-bottom:10px"></div>` : ''}
     <div class="detail-actions">
       ${!p.isAuction && !p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#fff;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
@@ -1368,6 +1486,7 @@ document.querySelectorAll('.tab').forEach(t => {
     if(t.dataset.tab==='home') clearBadge();
     if(t.dataset.tab==='chat') renderChat();
     if(t.dataset.tab==='feedback') renderFeedback();
+    if(t.dataset.tab==='announcements') renderAnnouncements();
     else { isAdminMode = false; adminPasswordCache = ''; }
   };
 });

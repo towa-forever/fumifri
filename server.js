@@ -82,6 +82,13 @@ app.post('/api/login', async (req, res) => {
   res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
 });
 
+app.get('/api/users/:name/public', async (req, res) => {
+  const user = await User.findOne({ name: req.params.name });
+  if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
+  const items = await Product.find({ owner: user.name }).sort({ createdAt: -1 }).lean();
+  res.json({ name: user.name, emoji: user.emoji, avatar: user.avatar, createdAt: user.createdAt, items });
+});
+
 app.put('/api/profile', async (req, res) => {
   const { name, pass, avatar } = req.body;
   const user = await User.findOne({ name, pass });
@@ -302,6 +309,33 @@ const feedbackSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+// お知らせ欄（運営からの一方向アナウンス）
+const announcementSchema = new mongoose.Schema({
+  text: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+const Announcement = mongoose.model('Announcement', announcementSchema);
+
+app.get('/api/announcements', async (req, res) => {
+  const list = await Announcement.find().sort({ createdAt: -1 });
+  res.json(list);
+});
+
+app.post('/api/announcements', async (req, res) => {
+  const { text, adminPassword } = req.body;
+  if (!process.env.ADMIN_PASSWORD || adminPassword !== process.env.ADMIN_PASSWORD) {
+    return res.status(403).json({ error: '管理者のみ投稿できます' });
+  }
+  if (!text || !text.trim()) return res.status(400).json({ error: '内容を入力してください' });
+  const a = await Announcement.create({ text: text.trim() });
+  try {
+    const users = await User.find({}, 'name');
+    const docs = users.map(u => ({ user: u.name, type: 'announcement', text: `📢 お知らせ: ${a.text.slice(0,40)}` }));
+    if (docs.length) await Notification.insertMany(docs);
+  } catch (e) {}
+  res.json(a);
+});
 
 app.get('/api/feedback', async (req, res) => {
   const list = await Feedback.find().sort({ createdAt: -1 });
