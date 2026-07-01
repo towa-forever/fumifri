@@ -420,9 +420,11 @@ app.post('/api/memories/:id/like', async (req, res) => {
   const m = await Memory.findById(req.params.id);
   if (!m) return res.status(404).json({ error: '投稿が見つかりません' });
   const i = m.likes.indexOf(user);
+  let liked = false;
   if (i > -1) m.likes.splice(i, 1);
-  else m.likes.push(user);
+  else { m.likes.push(user); liked = true; }
   await m.save();
+  if (liked && m.user !== user) await notify(m.user, 'memory-like', `${user}さんがあなたの思い出にいいね！しました`, null);
   res.json({ likes: m.likes });
 });
 
@@ -433,6 +435,7 @@ app.post('/api/memories/:id/comments', async (req, res) => {
   if (!m) return res.status(404).json({ error: '投稿が見つかりません' });
   m.comments.push({ user, text });
   await m.save();
+  if (m.user !== user) await notify(m.user, 'memory-comment', `${user}さんがあなたの思い出にコメントしました`, null);
   res.json(m.comments);
 });
 
