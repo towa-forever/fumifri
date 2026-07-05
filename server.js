@@ -147,7 +147,7 @@ app.post('/api/products', async (req, res) => {
     isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndDate: endDate, auctionEndTime, auctionEnd, auctionStatus
   });
   const subs = await Sub.find();
-  const payload = JSON.stringify({ title: '文フリ 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
+  const payload = JSON.stringify({ title: '文具市場 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
   try {
     const users = await User.find({}, 'name');
@@ -507,7 +507,7 @@ app.post('/api/products/:id/buy', async (req, res) => {
   if (!p.hoshii.includes(buyer)) p.hoshii.push(buyer);
   await p.save();
   const subs = await Sub.find();
-  const payload = JSON.stringify({ title: '文フリ 購入希望！', body: buyer + 'さんが「' + p.name + '」を買いたいと言っています！' });
+  const payload = JSON.stringify({ title: '文具市場 購入希望！', body: buyer + 'さんが「' + p.name + '」を買いたいと言っています！' });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
   res.json(p);
 });
@@ -772,4 +772,4 @@ setInterval(async () => {
 }, 60000);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`文フリ server running on ${PORT}`));
+app.listen(PORT, () => console.log(`文具市場 server running on ${PORT}`));
