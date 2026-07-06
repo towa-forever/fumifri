@@ -108,6 +108,113 @@ app.post('/api/profile/change-password', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ニックネーム変更（過去データすべてに新しい名前を反映する）
+app.post('/api/profile/change-name', async (req, res) => {
+  const { name, pass, newName: rawNewName } = req.body;
+  const newName = (rawNewName || '').trim();
+  if (!newName) return res.status(400).json({ error: '新しいニックネームを入力してください' });
+  if (UNSAFE_CHARS.test(newName)) return res.status(400).json({ error: 'ニックネームに使用できない文字が含まれています（\' " ` < > は使えません）' });
+  if (newName.length > 20) return res.status(400).json({ error: 'ニックネームは20文字以内にしてください' });
+
+  const user = await User.findOne({ name, pass });
+  if (!user) return res.status(401).json({ error: 'パスワードが正しくありません' });
+
+  if (newName === name) return res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
+
+  const dup = await User.findOne({ name: newName });
+  if (dup) return res.status(400).json({ error: 'そのニックネームはすでに使われています' });
+
+  const oldName = name;
+  const dbSession = await mongoose.startSession();
+  try {
+    await dbSession.withTransaction(async () => {
+      user.name = newName;
+      await user.save({ session: dbSession });
+
+      // 出品（出品者・購入者・ほしい！・コメント）
+      await Product.updateMany({ owner: oldName }, { $set: { owner: newName } }, { session: dbSession });
+      await Product.updateMany({ buyer: oldName }, { $set: { buyer: newName } }, { session: dbSession });
+      await Product.updateMany(
+        { hoshii: oldName },
+        { $set: { 'hoshii.$[e]': newName } },
+        { arrayFilters: [{ e: oldName }], session: dbSession }
+      );
+      await Product.updateMany(
+        { 'comments.user': oldName },
+        { $set: { 'comments.$[c].user': newName } },
+        { arrayFilters: [{ 'c.user': oldName }], session: dbSession }
+      );
+
+      // 入札履歴
+      await Bid.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+
+      // 思い出（投稿・いいね・コメント）
+      await Memory.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+      await Memory.updateMany(
+        { likes: oldName },
+        { $set: { 'likes.$[e]': newName } },
+        { arrayFilters: [{ e: oldName }], session: dbSession }
+      );
+      await Memory.updateMany(
+        { 'comments.user': oldName },
+        { $set: { 'comments.$[c].user': newName } },
+        { arrayFilters: [{ 'c.user': oldName }], session: dbSession }
+      );
+
+      // みんなのつぶやき＆掲示板（投稿・いいね・コメント）
+      await Board.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+      await Board.updateMany(
+        { likes: oldName },
+        { $set: { 'likes.$[e]': newName } },
+        { arrayFilters: [{ e: oldName }], session: dbSession }
+      );
+      await Board.updateMany(
+        { 'comments.user': oldName },
+        { $set: { 'comments.$[c].user': newName } },
+        { arrayFilters: [{ 'c.user': oldName }], session: dbSession }
+      );
+
+      // 通知履歴
+      await Notification.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+
+      // チャット（投稿・返信元・既読）
+      await ChatMessage.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+      await ChatMessage.updateMany({ 'replyTo.user': oldName }, { $set: { 'replyTo.user': newName } }, { session: dbSession });
+      await ChatMessage.updateMany(
+        { readBy: oldName },
+        { $set: { 'readBy.$[e]': newName } },
+        { arrayFilters: [{ e: oldName }], session: dbSession }
+      );
+
+      // 意見箱（投稿・返信）
+      await Feedback.updateMany({ user: oldName }, { $set: { user: newName } }, { session: dbSession });
+      await Feedback.updateMany(
+        { 'replies.user': oldName },
+        { $set: { 'replies.$[r].user': newName } },
+        { arrayFilters: [{ 'r.user': oldName }], session: dbSession }
+      );
+
+      // 契約書（出品者・購入者）
+      await Contract.updateMany({ seller: oldName }, { $set: { seller: newName } }, { session: dbSession });
+      await Contract.updateMany({ buyer: oldName }, { $set: { buyer: newName } }, { session: dbSession });
+
+      // クーポン（発行者・使用済みユーザー）
+      await Coupon.updateMany({ owner: oldName }, { $set: { owner: newName } }, { session: dbSession });
+      await Coupon.updateMany(
+        { usedBy: oldName },
+        { $set: { 'usedBy.$[e]': newName } },
+        { arrayFilters: [{ e: oldName }], session: dbSession }
+      );
+    });
+    res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
+  } catch (e) {
+    console.error('change-name failed:', e);
+    res.status(500).json({ error: 'ニックネームの変更に失敗しました。もう一度お試しください' });
+  } finally {
+    await dbSession.endSession();
+  }
+});
+
 
 app.post('/api/subscribe', async (req, res) => {
   const { endpoint, keys } = req.body;
@@ -237,6 +344,17 @@ const memorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Memory = mongoose.model('Memory', memorySchema);
+
+// みんなのつぶやき＆掲示板（思い出と同じ構成の自由投稿）
+const boardSchema = new mongoose.Schema({
+  user: { type: String, required: true },
+  text: { type: String, default: '' },
+  img: { type: String, default: null },
+  likes: { type: [String], default: [] },
+  comments: { type: [{ user: String, text: String, createdAt: { type: Date, default: Date.now } }], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+const Board = mongoose.model('Board', boardSchema);
 
 // 通知履歴
 const notificationSchema = new mongoose.Schema({
@@ -437,6 +555,52 @@ app.post('/api/memories/:id/comments', async (req, res) => {
   await m.save();
   if (m.user !== user) await notify(m.user, 'memory-comment', `${user}さんがあなたの思い出にコメントしました`, null);
   res.json(m.comments);
+});
+
+// ---- みんなのつぶやき＆掲示板 ----
+app.get('/api/board', async (req, res) => {
+  const posts = await Board.find().sort({ createdAt: -1 });
+  res.json(posts);
+});
+
+app.post('/api/board', async (req, res) => {
+  const { user, text, img } = req.body;
+  if (!user || (!text && !img)) return res.status(400).json({ error: 'テキストか画像を入力してください' });
+  const b = await Board.create({ user, text: text || '', img: img || null });
+  res.json(b);
+});
+
+app.delete('/api/board/:id', async (req, res) => {
+  const { requester } = req.body;
+  const b = await Board.findById(req.params.id);
+  if (!b) return res.status(404).json({ error: '投稿が見つかりません' });
+  if (b.user !== requester) return res.status(403).json({ error: '削除権限がありません' });
+  await b.deleteOne();
+  res.json({ ok: true });
+});
+
+app.post('/api/board/:id/like', async (req, res) => {
+  const { user } = req.body;
+  const b = await Board.findById(req.params.id);
+  if (!b) return res.status(404).json({ error: '投稿が見つかりません' });
+  const i = b.likes.indexOf(user);
+  let liked = false;
+  if (i > -1) b.likes.splice(i, 1);
+  else { b.likes.push(user); liked = true; }
+  await b.save();
+  if (liked && b.user !== user) await notify(b.user, 'board-like', `${user}さんがあなたの投稿にいいね！しました`, null);
+  res.json({ likes: b.likes });
+});
+
+app.post('/api/board/:id/comments', async (req, res) => {
+  const { user, text } = req.body;
+  if (!text) return res.status(400).json({ error: 'コメントを入力してください' });
+  const b = await Board.findById(req.params.id);
+  if (!b) return res.status(404).json({ error: '投稿が見つかりません' });
+  b.comments.push({ user, text });
+  await b.save();
+  if (b.user !== user) await notify(b.user, 'board-comment', `${user}さんがあなたの投稿にコメントしました`, null);
+  res.json(b.comments);
 });
 
 // オークション状態を「今の時刻」に合わせて進める（タイマーが止まってても呼ばれた時点で補正する）

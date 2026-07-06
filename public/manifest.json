@@ -1,11 +1,11 @@
 {
-  "name": "文フリ",
-  "short_name": "文フリ",
+  "name": "文具市場",
+  "short_name": "文具市場",
   "description": "文房具フリーマーケット",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FDFAF4",
-  "theme_color": "#8B6914",
+  "background_color": "#e0f2fe",
+  "theme_color": "#a0d8ef",
   "icons": [
     {
       "src": "/icon-192.png",
