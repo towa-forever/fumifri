@@ -13,14 +13,14 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothic ProN,sans-serif;background:#e0f2fe;color:#333;max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:80px}
-:root{--cr:#a0d8ef;--crl:#e0f2fe;--crm:#a0d8ef}
+:root{--cr:#a0d8ef;--crl:#e0f2fe;--crm:#a0d8ef;--crd:#0c4a6e}
 .topbar{background:var(--cr);border-bottom:1.5px solid var(--crm);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
 .topbar-title{font-size:18px;font-weight:700;color:#0c4a6e;flex:1}
 .top-user-btn{font-size:13px;color:#0c4a6e;cursor:pointer;background:#fff;border:1px solid #fff;border-radius:20px;padding:5px 12px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;font-family:inherit}
 .tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--crl);border-bottom:1px solid var(--crm);position:sticky;top:53px;z-index:99;scrollbar-width:none}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab{flex:0 0 auto;min-width:72px;padding:10px 8px;text-align:center;font-size:13px;color:#999;cursor:pointer;border-bottom:2px solid transparent;user-select:none;white-space:nowrap}
-.tab.active{color:var(--cr);border-bottom:2px solid var(--cr);font-weight:700}
+.tab.active{color:var(--crd);border-bottom:2px solid var(--cr);font-weight:700}
 .page{display:none;padding:8px 12px}
 #tab-chat.active{display:flex;flex-direction:column;height:calc(100vh - 53px - 41px);padding:0}
 .page.active{display:block}
@@ -30,7 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .cat-row{display:flex;gap:8px;padding:6px 12px 10px;overflow-x:auto}
 .cat-row::-webkit-scrollbar{display:none}
 .cat-btn{white-space:nowrap;font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid #ccc;cursor:pointer;background:#fff;color:#666;user-select:none;font-family:inherit}
-.cat-btn.active{background:var(--cr);color:#fff;border-color:var(--cr)}
+.cat-btn.active{background:var(--cr);color:#0c4a6e;border-color:var(--cr)}
 .product-grid{display:flex;flex-direction:column;gap:10px}
 .pcard{background:#fff;border:1px solid #e8e0cc;border-radius:12px;overflow:hidden;cursor:pointer;display:flex}
 .pcard.sold-card{opacity:.6}
@@ -46,11 +46,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .b-fix{background:#F3E5F5;color:#7B1FA2}
 .b-sold{background:#FFEBEE;color:#C62828}
 .pcard-foot{display:flex;align-items:center;justify-content:space-between}
-.pcard-price{font-size:15px;font-weight:700;color:var(--cr)}
+.pcard-price{font-size:15px;font-weight:700;color:var(--crd)}
 .hoshii-btn{background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:3px;font-size:12px;color:#bbb;padding:0;line-height:1;font-family:inherit}
 .hoshii-btn.active{color:#e04060}
 .hoshii-btn i{font-size:16px}
-.fab{position:fixed;bottom:24px;right:20px;width:54px;height:54px;border-radius:50%;background:var(--cr);color:#fff;border:none;font-size:26px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);z-index:200}
+.fab{position:fixed;bottom:24px;right:20px;width:54px;height:54px;border-radius:50%;background:var(--cr);color:#0c4a6e;border:none;font-size:26px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);z-index:200}
 .fab.show{display:flex}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:300;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 12px 30px}
 .modal-bg.open{display:block}
@@ -68,7 +68,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .toggle::after{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s}
 .toggle.on::after{transform:translateX(18px)}
 .btn-row{display:flex;gap:8px;margin-top:16px}
-.btn-p{flex:1;padding:10px;background:var(--cr);color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-weight:700;font-family:inherit}
+.btn-p{flex:1;padding:10px;background:var(--cr);color:#0c4a6e;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-weight:700;font-family:inherit}
 .btn-c{padding:10px 14px;background:none;border:1px solid #ddd;border-radius:10px;font-size:14px;cursor:pointer;color:#666;font-family:inherit}
 .btn-d{padding:10px 14px;background:#FFEBEE;border:none;border-radius:10px;font-size:14px;cursor:pointer;color:#C62828;font-weight:700;font-family:inherit}
 .img-upload-area{border:2px dashed #ddd;border-radius:10px;height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:6px;color:#bbb;font-size:13px;position:relative;overflow:hidden}
@@ -83,22 +83,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .detail-img{width:100%;height:200px;background:var(--crl);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:64px;overflow:hidden;margin-bottom:14px}
 .detail-img img{width:100%;height:100%;object-fit:contain;background:#fafafa}
 .detail-name{font-size:18px;font-weight:700;margin-bottom:4px}
-.detail-price{font-size:22px;font-weight:700;color:var(--cr);margin:8px 0}
+.detail-price{font-size:22px;font-weight:700;color:var(--crd);margin:8px 0}
 .detail-desc{font-size:14px;color:#555;line-height:1.7;margin:8px 0 10px;white-space:pre-wrap}
 .detail-owner{font-size:12px;color:#bbb;margin-bottom:12px}
 .detail-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .act-btn{background:none;border:1px solid #ddd;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:13px;color:#555;display:flex;align-items:center;gap:5px;font-family:inherit}
 .act-btn.hoshii-on{border-color:#e04060;color:#e04060;background:#FFF0F3}
-.act-btn.notif-on{border-color:var(--cr);color:var(--cr);background:var(--crl)}
+.act-btn.notif-on{border-color:var(--cr);color:var(--crd);background:var(--crl)}
 .hoshii-who{font-size:12px;color:#bbb;margin-bottom:14px;min-height:16px}
 .cmt-section{border-top:1px solid #f0f0f0;padding-top:14px;margin-top:4px}
 .cmt-section h3{font-size:13px;color:#999;margin-bottom:10px;font-weight:700}
 .cmt-item{background:#F8F5F0;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px}
-.cmt-author{font-weight:700;color:var(--cr);font-size:12px;margin-bottom:2px}
+.cmt-author{font-weight:700;color:var(--crd);font-size:12px;margin-bottom:2px}
 .cmt-input-row{display:flex;gap:8px;margin-top:10px}
 .cmt-input-row input{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;outline:none;color:#333;font-family:inherit}
 .cmt-input-row input:focus{border-color:var(--crm)}
-.cmt-send{background:var(--cr);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-family:inherit}
+.cmt-send{background:var(--cr);color:#0c4a6e;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-family:inherit}
 .close-btn{background:none;border:none;cursor:pointer;font-size:22px;color:#999;line-height:1;padding:0}
 .auth-wrap{padding:32px 20px 20px;text-align:center}
 .auth-icon{font-size:52px;margin-bottom:14px;line-height:1}
@@ -107,7 +107,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .auth-wrap input{width:100%;border:1px solid #ddd;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:10px;outline:none;background:#fff;color:#333;font-family:inherit}
 .auth-wrap input:focus{border-color:var(--crm)}
 .auth-wrap .btn-p{width:100%;padding:12px;margin-top:4px}
-.auth-toggle{font-size:13px;color:var(--cr);cursor:pointer;text-decoration:underline;display:block;margin-bottom:12px;background:none;border:none;font-family:inherit}
+.auth-toggle{font-size:13px;color:var(--crd);cursor:pointer;text-decoration:underline;display:block;margin-bottom:12px;background:none;border:none;font-family:inherit}
 .auth-err{color:#C62828;font-size:13px;margin-top:8px;min-height:16px}
 .prof-page{padding:20px}
 .prof-avatar{width:80px;height:80px;border-radius:50%;background:var(--crl);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:38px;border:2px solid var(--crm)}
@@ -115,13 +115,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .prof-bio{text-align:center;font-size:13px;color:#999;margin-bottom:20px}
 .stat-row{display:flex;justify-content:center;gap:24px;margin-bottom:20px}
 .stat-box{text-align:center}
-.stat-num{font-size:24px;font-weight:700;color:var(--cr)}
+.stat-num{font-size:24px;font-weight:700;color:var(--crd)}
 .stat-lbl{font-size:11px;color:#999;margin-top:2px}
 .sec-box{background:#fff;border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px}
 .sec-box h3{font-size:13px;color:#999;margin-bottom:10px;font-weight:700}
 .logout-btn{width:100%;padding:10px;background:none;border:1px solid #ddd;border-radius:10px;font-size:14px;cursor:pointer;color:#999;font-family:inherit;margin-top:4px}
-.notif-btn{width:100%;padding:10px;border-radius:10px;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;border:1px solid var(--crm);background:var(--crl);color:var(--cr)}
-.notif-btn.on{background:var(--cr);color:#fff;border-color:var(--cr)}
+.notif-btn{width:100%;padding:10px;border-radius:10px;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;border:1px solid var(--crm);background:var(--crl);color:var(--crd)}
+.notif-btn.on{background:var(--cr);color:#0c4a6e;border-color:var(--cr)}
 .mini-pcard{background:#fff;border:1px solid #e8e0cc;border-radius:10px;padding:10px 12px;display:flex;gap:10px;cursor:pointer;margin-bottom:8px}
 .mini-pcard-img{width:48px;height:48px;border-radius:6px;background:var(--crl);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden}
 .mini-pcard-img img{width:100%;height:100%;object-fit:cover}
@@ -677,7 +677,7 @@ async function renderMemories(){
         ${m.text ? `<p style="font-size:14px;line-height:1.6;white-space:pre-wrap;margin-bottom:8px">${esc(m.text)}</p>` : ''}
         ${m.img ? `<img src="${m.img}" style="width:100%;border-radius:8px;margin-bottom:8px">` : ''}
         <div style="display:flex;gap:14px;font-size:12px;color:#999">
-          <span style="cursor:pointer;${liked?'color:var(--cr);font-weight:700':''}" onclick="toggleMemoryLike('${m._id}')"><i class="ti ti-heart"></i> ${m.likes.length}</span>
+          <span style="cursor:pointer;${liked?'color:var(--crd);font-weight:700':''}" onclick="toggleMemoryLike('${m._id}')"><i class="ti ti-heart"></i> ${m.likes.length}</span>
           <span style="cursor:pointer" onclick="toggleMemoryComments('${m._id}')"><i class="ti ti-message"></i> ${m.comments.length}</span>
         </div>
         <div id="mem-comments-${m._id}" style="display:none;margin-top:10px">
@@ -762,6 +762,7 @@ async function submitBoardPost(){
   try{
     await api('POST', '/board', { user: session.name, text, img: boardPendingImg });
     boardPendingImg = null;
+    toast('投稿しました！');
     renderBoardComposer();
     renderBoard();
   }catch(e){ toast(e.message); }
@@ -788,7 +789,7 @@ async function renderBoard(){
         ${b.text ? `<p style="font-size:14px;line-height:1.6;white-space:pre-wrap;margin-bottom:8px">${esc(b.text)}</p>` : ''}
         ${b.img ? `<img src="${b.img}" style="width:100%;border-radius:8px;margin-bottom:8px">` : ''}
         <div style="display:flex;gap:14px;font-size:12px;color:#999">
-          <span style="cursor:pointer;${liked?'color:var(--cr);font-weight:700':''}" onclick="toggleBoardLike('${b._id}')"><i class="ti ti-heart"></i> ${b.likes.length}</span>
+          <span style="cursor:pointer;${liked?'color:var(--crd);font-weight:700':''}" onclick="toggleBoardLike('${b._id}')"><i class="ti ti-heart"></i> ${b.likes.length}</span>
           <span style="cursor:pointer" onclick="toggleBoardComments('${b._id}')"><i class="ti ti-message"></i> ${b.comments.length}</span>
         </div>
         <div id="board-comments-${b._id}" style="display:none;margin-top:10px">
@@ -919,7 +920,7 @@ async function loadChatMessages(){
         ${!mine?`<div style="font-size:11px;color:#999;margin-bottom:2px;margin-left:4px">${esc(m.user)}</div>`:''}
         <div style="max-width:75%">
           ${m.replyTo && m.replyTo.id ? `<div style="font-size:11px;color:#999;background:#f5f5f5;border-radius:8px 8px 0 0;padding:4px 10px;border-bottom:1px solid #e8e8e8">↩️ ${esc(m.replyTo.user)}: ${esc((m.replyTo.text||'').slice(0,40))}</div>` : ''}
-          <div style="background:${mine?'var(--cr)':'#f0f0f0'};color:${mine?'#fff':'#333'};padding:8px 12px;border-radius:${m.replyTo && m.replyTo.id ? '0 0 14px 14px' : '14px'};font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${esc(m.text)}</div>
+          <div style="background:${mine?'var(--cr)':'#f0f0f0'};color:${mine?'#0c4a6e':'#333'};padding:8px 12px;border-radius:${m.replyTo && m.replyTo.id ? '0 0 14px 14px' : '14px'};font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word">${esc(m.text)}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:2px">
           <span style="font-size:10px;color:#bbb">${time}</span>
@@ -985,7 +986,7 @@ function renderAdminToggle(){
   if(!el) return;
   el.innerHTML = isAdminMode
     ? `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff3f3;border-radius:8px;padding:8px 12px;margin-bottom:10px">
-        <span style="font-size:12px;color:var(--cr);font-weight:700">🔧 管理者モード中</span>
+        <span style="font-size:12px;color:var(--crd);font-weight:700">🔧 管理者モード中</span>
         <button onclick="isAdminMode=false;adminPasswordCache='';renderAdminToggle();renderFeedback();" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer">解除</button>
       </div>`
     : `<button onclick="promptAdminMode()" style="border:none;background:none;color:#bbb;font-size:11px;cursor:pointer;margin-bottom:8px">🔧 管理者モードにする</button>`;
@@ -1009,7 +1010,7 @@ function renderAnnounceAdminToggle(){
   if(!el) return;
   el.innerHTML = isAdminMode
     ? `<div style="display:flex;justify-content:space-between;align-items:center;background:#fff3f3;border-radius:8px;padding:8px 12px;margin-bottom:10px">
-        <span style="font-size:12px;color:var(--cr);font-weight:700">🔧 管理者モード中</span>
+        <span style="font-size:12px;color:var(--crd);font-weight:700">🔧 管理者モード中</span>
         <button onclick="isAdminMode=false;adminPasswordCache='';renderAnnounceAdminToggle();renderAnnouncements();" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer">解除</button>
       </div>`
     : `<button onclick="promptAdminModeFor('announce')" style="border:none;background:none;color:#bbb;font-size:11px;cursor:pointer;margin-bottom:8px">🔧 管理者モードにする</button>`;
@@ -1219,7 +1220,7 @@ async function openPublicProfile(name){
             <div class="mini-pcard-img">${p.img?`<img src="${p.img}" alt="">`:p.emoji||'📦'}</div>
             <div class="mini-pcard-body">
               <div class="mini-pcard-name">${esc(p.name)}</div>
-              <div style="font-size:13px;font-weight:700;color:var(--cr);margin-top:3px">¥${p.price.toLocaleString()}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--crd);margin-top:3px">¥${p.price.toLocaleString()}</div>
             </div>
           </div>`).join('') : '<p style="font-size:13px;color:#bbb">出品中の商品はありません</p>'}
       </div>
@@ -1239,13 +1240,13 @@ async function renderProfile(){
       const needsMySign = ct => (ct.seller === session.name && !ct.sellerSigned) || (ct.buyer === session.name && !ct.buyerSigned);
       const unsignedCount = contracts.filter(needsMySign).length;
       const badge = $('contracts-unsigned-badge');
-      if(badge) badge.innerHTML = unsignedCount ? `<span style="background:var(--cr);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${unsignedCount}</span>` : '';
+      if(badge) badge.innerHTML = unsignedCount ? `<span style="background:var(--cr);color:#0c4a6e;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">${unsignedCount}</span>` : '';
 
       const sorted = contracts.slice().sort((a,b) => (needsMySign(b)?1:0) - (needsMySign(a)?1:0));
       cl.innerHTML = sorted.length ? sorted.map(ct => {
         const mine = needsMySign(ct);
         const done = ct.sellerSigned && ct.buyerSigned;
-        const statusHtml = done ? '<span style="color:green">✅ 契約成立</span>' : mine ? '<span style="color:var(--cr);font-weight:700">✍️ あなたのサインが必要です</span>' : '<span style="color:#e08a00">⏳ 相手のサイン待ち</span>';
+        const statusHtml = done ? '<span style="color:green">✅ 契約成立</span>' : mine ? '<span style="color:var(--crd);font-weight:700">✍️ あなたのサインが必要です</span>' : '<span style="color:#e08a00">⏳ 相手のサイン待ち</span>';
         return `
         <div class="mini-pcard" style="cursor:pointer;${mine?'background:#fff3f3;border:1px solid var(--cr)':''}" onclick="openContractSign('${ct._id}')">
           <div class="mini-pcard-body" style="padding:10px 4px">
@@ -1300,7 +1301,7 @@ async function renderProfile(){
           <div class="mini-pcard-body">
             <div class="mini-pcard-name">${esc(p.name)}</div>
             <div class="badges" style="margin-top:4px"><span class="badge b-cond">${esc(p.cond)}</span>${p.sold?'<span class="badge b-sold">売り切れ</span>':''}</div>
-            <div style="font-size:13px;font-weight:700;color:var(--cr);margin-top:3px">¥${p.price.toLocaleString()}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--crd);margin-top:3px">¥${p.price.toLocaleString()}</div>
           </div>
         </div>`).join('') : '<p style="font-size:13px;color:#bbb">まだ出品していません</p>'}
     </div>
@@ -1397,13 +1398,13 @@ function openDetail(id){
     <div class="detail-owner" style="cursor:pointer" onclick="openPublicProfile('${esc(p.owner)}')"><i class="ti ti-user" style="font-size:13px;vertical-align:-2px"></i> 出品者: ${esc(p.owner)} <i class="ti ti-chevron-right" style="font-size:11px"></i></div>
     ${p.isAuction ? `<div id="auction-box" style="background:#fff8f0;border-radius:10px;padding:12px;margin-bottom:10px"></div>` : ''}
     <div class="detail-actions">
-      ${!p.isAuction && !p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#fff;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
+      ${!p.isAuction && !p.sold && session && p.owner !== session.name ? (iH ? `<button class="act-btn" style="background:#f0f0f0;color:#999;flex:1" disabled><i class="ti ti-check"></i> 購入希望済み</button>` : `<button class="act-btn" style="background:var(--cr);color:#0c4a6e;border-color:var(--cr);flex:1" onclick="buyProduct('${p._id}')"><i class="ti ti-shopping-cart"></i> 購入する</button>`) : ''}
       ${!p.isAuction ? `<button class="act-btn${iH?' hoshii-on':''}" onclick="toggleHoshiiD('${p._id}')">
         <i class="ti ti-heart"></i> ${iH?' ほしい！済':'ほしい！'}（${p.hoshii.length}）
       </button>` : ''}
-      ${isMine && !p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button><button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
+      ${isMine && !p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button><button class="act-btn" style="background:#fff3f3;color:var(--crd);border-color:var(--cr)" onclick="openSelectBuyer('${p._id}')"><i class="ti ti-user-check"></i> 購入者を選ぶ</button>`:''}
       ${isMine && p.isAuction?`<button class="act-btn" onclick="openEdit('${p._id}')"><i class="ti ti-edit"></i>  編集</button>`:''}
-      ${isMine && p.isAuction && p.sold && p.buyer ? `<button class="act-btn" style="background:#fff3f3;color:var(--cr);border-color:var(--cr)" onclick="openContractForm('${p._id}','${esc(p.owner)}','${esc(p.buyer)}')"><i class="ti ti-file-text"></i> 契約書を作成する</button>` : ''}
+      ${isMine && p.isAuction && p.sold && p.buyer ? `<button class="act-btn" style="background:#fff3f3;color:var(--crd);border-color:var(--cr)" onclick="openContractForm('${p._id}','${esc(p.owner)}','${esc(p.buyer)}')"><i class="ti ti-file-text"></i> 契約書を作成する</button>` : ''}
       <button class="act-btn" onclick="shareP('${p._id}')"><i class="ti ti-share"></i> シェア</button>
     </div>
     <div class="hoshii-who">${who}</div>
@@ -1691,7 +1692,7 @@ async function openSelectBuyer(productId) {
       ${bids.length === 0 ? '<p style="color:#999;font-size:13px">まだ入札なし</p>' : bids.map((b,i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:${i===0?'#fff3f3':'#fafafa'};border-radius:10px;margin-bottom:8px">
           <span style="font-weight:700">${i===0?'👑 ':''}${esc(b.user)}</span>
-          <span style="font-weight:700;color:var(--cr)">¥${b.amount.toLocaleString()}</span>
+          <span style="font-weight:700;color:var(--crd)">¥${b.amount.toLocaleString()}</span>
           <button class="btn-p" style="padding:6px 12px;font-size:12px" onclick="confirmSelectBuyer('${productId}','${b.user}')">選ぶ</button>
         </div>`).join('')}
     `;
@@ -1737,7 +1738,7 @@ async function openContractForm(productId, seller, buyer) {
     <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px">
       <p style="font-size:13px;color:#666">品物</p>
       <p style="font-weight:700">${p ? p.emoji + ' ' + p.name : ''}</p>
-      <p style="font-size:13px;color:var(--cr);font-weight:700">¥${p ? p.price.toLocaleString() : ''}</p>
+      <p style="font-size:13px;color:var(--crd);font-weight:700">¥${p ? p.price.toLocaleString() : ''}</p>
     </div>
     <p style="font-size:13px;color:#666;margin-bottom:4px">出品者: <b>${seller}</b>　購入者: <b>${buyer}</b></p>
     <label class="lbl">支払日</label>

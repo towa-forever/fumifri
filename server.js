@@ -226,14 +226,30 @@ app.get('/api/products', async (req, res) => {
   let products = await Product.find().sort({ createdAt: -1 }).lean();
   const now = new Date();
   const toFlip = [];
+  const toEnd = [];
   for (const p of products) {
     if (p.isAuction && p.auctionStatus === 'scheduled' && p.auctionStartDate && p.auctionStartTime) {
       const startAt = new Date(p.auctionStartDate + 'T' + p.auctionStartTime + ':00+09:00');
       if (now >= startAt) { p.auctionStatus = 'open'; toFlip.push(p._id); }
     }
+    if (p.isAuction && p.auctionStatus === 'open' && p.auctionEnd && now >= new Date(p.auctionEnd)) {
+      toEnd.push(p);
+    }
   }
   if (toFlip.length) {
     Product.updateMany({ _id: { $in: toFlip } }, { auctionStatus: 'open' }).catch(()=>{});
+  }
+  for (const p of toEnd) {
+    const bids = await Bid.find({ productId: p._id }).sort({ amount: -1 });
+    if (bids.length === 0) {
+      p.auctionStatus = 'done';
+      await Product.updateOne({ _id: p._id }, { auctionStatus: 'done' });
+    } else {
+      p.auctionStatus = 'confirming';
+      p.currentWinnerIndex = 0;
+      await Product.updateOne({ _id: p._id }, { auctionStatus: 'confirming', currentWinnerIndex: 0 });
+      await notify(bids[0].user, 'auction-confirm', `「${p.name}」のオークションで落札しました！購入するか確認してください`, p._id);
+    }
   }
   res.json(products);
 });
@@ -621,7 +637,11 @@ async function tickAuction(p) {
   if (p.auctionStatus === 'open' && p.auctionEnd && now >= new Date(p.auctionEnd)) {
     const bids = await Bid.find({ productId: p._id }).sort({ amount: -1 });
     if (bids.length === 0) { p.auctionStatus = 'done'; }
-    else { p.auctionStatus = 'confirming'; p.currentWinnerIndex = 0; }
+    else {
+      p.auctionStatus = 'confirming';
+      p.currentWinnerIndex = 0;
+      await notify(bids[0].user, 'auction-confirm', `「${p.name}」のオークションで落札しました！購入するか確認してください`, p._id);
+    }
     changed = true;
   }
   if (changed) await p.save();
@@ -727,6 +747,7 @@ app.post('/api/products/:id/auction-end', async (req, res) => {
   p.auctionStatus = 'confirming';
   p.currentWinnerIndex = 0;
   await p.save();
+  await notify(bids[0].user, 'auction-confirm', `「${p.name}」のオークションで落札しました！購入するか確認してください`, p._id);
   res.json({ p, topBidder: bids[0] });
 });
 
@@ -753,9 +774,13 @@ app.post('/api/products/:id/auction-confirm', async (req, res) => {
       return res.json({ ok: true, decided: false, message: '購入者が決まりませんでした' });
     }
     await p.save();
-    res.json({ ok: true, decided: false, nextBidder: bids[p.currentWinnerIndex] });
+    const next = bids[p.currentWinnerIndex];
+    await notify(next.user, 'auction-confirm', `「${p.name}」のオークションで繰り上げ当選しました！購入するか確認してください`, p._id);
+    res.json({ ok: true, decided: false, nextBidder: next });
   }
 });
+
+
 
 // 出品者が手動で次の人に進める
 app.post('/api/products/:id/auction-next', async (req, res) => {
@@ -771,7 +796,9 @@ app.post('/api/products/:id/auction-next', async (req, res) => {
     return res.json({ ok: true, decided: false, message: '購入者が決まりませんでした' });
   }
   await p.save();
-  res.json({ ok: true, nextBidder: bids[p.currentWinnerIndex] });
+  const next = bids[p.currentWinnerIndex];
+  await notify(next.user, 'auction-confirm', `「${p.name}」のオークションで繰り上げ当選しました！購入するか確認してください`, p._id);
+  res.json({ ok: true, nextBidder: next });
 });
 
 // 現在の確認対象者を取得
