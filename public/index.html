@@ -6,7 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="文具市場">
-<meta name="theme-color" content="#F5EDD6">
+<meta name="theme-color" content="#a0d8ef">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="manifest" href="/manifest.json">
 <title>文具市場</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -101,7 +103,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 .cmt-send{background:var(--cr);color:#0c4a6e;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-family:inherit}
 .close-btn{background:none;border:none;cursor:pointer;font-size:22px;color:#999;line-height:1;padding:0}
 .auth-wrap{padding:32px 20px 20px;text-align:center}
-.auth-icon{font-size:52px;margin-bottom:14px;line-height:1}
+.auth-icon{width:64px;height:64px;border-radius:16px;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto}
 .auth-wrap h2{font-size:20px;font-weight:700;margin-bottom:6px}
 .auth-wrap p{font-size:14px;color:#999;margin-bottom:18px;line-height:1.6}
 .auth-wrap input{width:100%;border:1px solid #ddd;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:10px;outline:none;background:#fff;color:#333;font-family:inherit}
@@ -138,7 +140,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 <body>
 
 <div class="topbar">
-  <span style="font-size:20px">✏️</span>
+  <img src="/icon-192.png" alt="文具市場" style="width:28px;height:28px;border-radius:7px;display:block">
   <span class="topbar-title">文具市場</span>
   <button id="notif-bell-btn" onclick="toggleNotifPanel()" style="position:relative;background:none;border:none;font-size:20px;cursor:pointer;margin-left:auto;margin-right:6px">
     <i class="ti ti-bell"></i>
@@ -219,7 +221,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 <div class="modal-bg" id="auth-modal">
   <div class="modal">
     <div class="auth-wrap">
-      <div class="auth-icon">📒</div>
+      <img src="/icon-192.png" class="auth-icon" alt="文具市場">
       <h2 id="auth-title">文具市場へようこそ</h2>
       <p id="auth-desc">アカウントを作って参加しよう</p>
       <input type="text" id="a-name" placeholder="ニックネーム" autocomplete="off">
