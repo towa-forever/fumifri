@@ -256,7 +256,7 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   const { name, cat, cond, desc, price, neg, emoji, img, imgs, owner, isAuction, auctionStartDate, auctionStartTime, auctionEndDate, auctionEndTime } = req.body;
-  if (!name || !price || !owner) return res.status(400).json({ error: '必須項目が足りません' });
+  if (!name || price === undefined || price === null || price === '' || !owner) return res.status(400).json({ error: '必須項目が足りません' });
   if (UNSAFE_CHARS.test(name)) return res.status(400).json({ error: '商品名に使用できない文字が含まれています' });
   let auctionEnd = null;
   let auctionStatus = 'none';
@@ -270,7 +270,8 @@ app.post('/api/products', async (req, res) => {
     isAuction: !!isAuction, auctionStartDate, auctionStartTime, auctionEndDate: endDate, auctionEndTime, auctionEnd, auctionStatus
   });
   const subs = await Sub.find();
-  const payload = JSON.stringify({ title: '文具市場 新着！', body: p.emoji + ' ' + p.name + ' ¥' + p.price });
+  const priceText = p.price === 0 ? '無料（0円）' : '¥' + p.price;
+  const payload = JSON.stringify({ title: '文具市場 新着！', body: p.emoji + ' ' + p.name + ' ' + priceText });
   subs.forEach(s => webpush.sendNotification(s, payload).catch(()=>{}));
   try {
     const users = await User.find({}, 'name');
