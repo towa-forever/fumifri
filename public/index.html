@@ -1797,7 +1797,7 @@ async function openContractForm(productId, seller, buyer) {
     <label class="lbl">受け渡し場所</label>
     <input id="ct-handover-place" class="inp" placeholder="例: 教室、駅前など">
     <label class="lbl">キャンセル規定</label>
-    <textarea id="ct-cancel-policy" class="inp" rows="2">受け渡し日の前日までに申し出た場合に限り、双方合意のうえキャンセルできるものとする。</textarea>
+    <textarea id="ct-cancel-policy" class="inp" rows="2">受け渡し日の前日までに連絡してもらえれば、キャンセルOKです。</textarea>
     <label class="lbl">メモ・備考</label>
     <textarea id="ct-memo" class="inp" rows="3" placeholder="自由記入"></textarea>
     <button class="btn-p" style="width:100%;margin-top:8px" onclick="submitContract('${productId}','${seller}','${buyer}')">契約書を作成する</button>
@@ -1829,37 +1829,37 @@ async function openContractSign(contractId) {
   const createdDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('ja-JP') : '';
   content.innerHTML = `
     <div style="border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;line-height:1.9">
-      <h2 style="text-align:center;font-size:16px;font-weight:700;margin-bottom:2px">売買契約書</h2>
-      <p style="text-align:center;font-size:11px;color:#999;margin-bottom:14px">契約番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</p>
-      <p style="margin-bottom:10px">出品者（甲）「<b>${esc(c.seller)}</b>」と購入者（乙）「<b>${esc(c.buyer)}</b>」は、以下の通り物品の売買契約を締結する。</p>
+      <h2 style="text-align:center;font-size:16px;font-weight:700;margin-bottom:2px">お取引の確認書</h2>
+      <p style="text-align:center;font-size:11px;color:#999;margin-bottom:14px">確認番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</p>
+      <p style="margin-bottom:10px">出品者の<b>${esc(c.seller)}</b>さんと、購入者の<b>${esc(c.buyer)}</b>さんの間で、下記の内容でお取引します。</p>
 
-      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第1条（売買物件）</p>
-      <p>品物: <b>${esc(c.productName)}</b>　売買代金: <b>${fmtPrice(c.price)}</b></p>
+      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">📦 品物・金額</p>
+      <p>品物: <b>${esc(c.productName)}</b>　金額: <b>${fmtPrice(c.price)}</b></p>
       ${c.discountPercent > 0 ? `<p style="font-size:12px;color:#e04060">（商品価格 ${fmtPrice(c.originalPrice)} より ${c.discountPercent}%引き：${esc(c.discountReason)}）</p>` : ''}
 
-      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第2条（支払い）</p>
-      <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
+      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">💰 お支払い</p>
+      <p>${esc(c.buyer)}さんが${esc(c.seller)}さんに、${c.paymentMethod || '現金'}で、${c.paymentDate || '未定'}までにお支払いします。</p>
 
-      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第3条（受け渡し）</p>
-      <p>甲は乙に対し、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}にて、${c.handoverMethod || '対面'}により物品を引き渡すものとする。</p>
+      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">🤝 受け渡し</p>
+      <p>${esc(c.seller)}さんが${esc(c.buyer)}さんに、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}で、${c.handoverMethod || '対面'}で渡します。</p>
 
-      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第4条（キャンセル）</p>
+      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">🙅 キャンセルについて</p>
       <p>${esc(c.cancellationPolicy || '')}</p>
 
-      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第5条（特約事項）</p>
-      <p>${esc(c.memo || 'なし')}</p>
+      <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">✏️ そのほか</p>
+      <p>${esc(c.memo || 'とくになし')}</p>
     </div>
     <div style="margin-bottom:14px">
-      <p style="font-size:13px;font-weight:700;margin-bottom:6px">甲（出品者）サイン (${esc(c.seller)})</p>
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">出品者サイン (${esc(c.seller)})</p>
       ${c.sellerSigned ? '<p style="color:green">✅ ' + c.sellerSign + (c.sellerSignedAt ? '　<span style=\"color:#999;font-size:11px\">' + new Date(c.sellerSignedAt).toLocaleString('ja-JP') + '</span>' : '') + '</p>' :
         loginUser === c.seller ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
     </div>
     <div>
-      <p style="font-size:13px;font-weight:700;margin-bottom:6px">乙（購入者）サイン (${esc(c.buyer)})</p>
+      <p style="font-size:13px;font-weight:700;margin-bottom:6px">購入者サイン (${esc(c.buyer)})</p>
       ${c.buyerSigned ? '<p style="color:green">✅ ' + c.buyerSign + (c.buyerSignedAt ? '　<span style=\"color:#999;font-size:11px\">' + new Date(c.buyerSignedAt).toLocaleString('ja-JP') + '</span>' : '') + '</p>' :
         loginUser === c.buyer ? '<input id="sign-input" class="inp" placeholder="名前を入力"><button class="btn-p" style="width:100%;margin-top:6px" onclick="submitSign(\'' + contractId + '\')">サインする</button>' : '<p style="color:#999;font-size:13px">未サイン</p>'}
     </div>
-    ${c.sellerSigned && c.buyerSigned ? '<p style="text-align:center;color:green;font-weight:700;margin-top:14px">✅ 契約成立！</p>' : ''}
+    ${c.sellerSigned && c.buyerSigned ? '<p style="text-align:center;color:green;font-weight:700;margin-top:14px">✅ 取引成立！</p>' : ''}
     <button class="btn-c" style="width:100%;margin-top:14px" onclick="printContract('${contractId}')"><i class="ti ti-printer"></i> PDF / 印刷する</button>
   `;
   document.getElementById('contract-modal').classList.add('open');
@@ -1870,7 +1870,7 @@ async function printContract(contractId) {
   const createdDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('ja-JP') : '';
   const w = window.open('', '_blank');
   w.document.write(`
-    <html><head><title>売買契約書 ${c.contractNumber || ''}</title>
+    <html><head><title>お取引の確認書 ${c.contractNumber || ''}</title>
     <meta charset="utf-8">
     <style>
       body{font-family:'Hiragino Sans','Yu Gothic',sans-serif;padding:36px;line-height:2;color:#222;max-width:720px;margin:0 auto}
@@ -1882,23 +1882,23 @@ async function printContract(contractId) {
       @media print{ body{padding:14mm} }
     </style>
     </head><body>
-      <h1>売買契約書</h1>
-      <div class="meta">契約番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</div>
-      <p>出品者（甲）「<b>${esc(c.seller)}</b>」と購入者（乙）「<b>${esc(c.buyer)}</b>」は、以下の通り物品の売買契約を締結する。</p>
-      <h2>第1条（売買物件）</h2>
-      <p>品物: ${esc(c.productName)}<br>売買代金: ${fmtPrice(c.price)}${c.discountPercent > 0 ? `<br><span style="font-size:12px;color:#e04060">（商品価格 ${fmtPrice(c.originalPrice)} より ${c.discountPercent}%引き：${esc(c.discountReason)}）</span>` : ''}</p>
-      <h2>第2条（支払い）</h2>
-      <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
-      <h2>第3条（受け渡し）</h2>
-      <p>甲は乙に対し、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}にて、${c.handoverMethod || '対面'}により物品を引き渡すものとする。</p>
-      <h2>第4条（キャンセル）</h2>
+      <h1>お取引の確認書</h1>
+      <div class="meta">確認番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</div>
+      <p>出品者の<b>${esc(c.seller)}</b>さんと、購入者の<b>${esc(c.buyer)}</b>さんの間で、下記の内容でお取引します。</p>
+      <h2>📦 品物・金額</h2>
+      <p>品物: ${esc(c.productName)}<br>金額: ${fmtPrice(c.price)}${c.discountPercent > 0 ? `<br><span style="font-size:12px;color:#e04060">（商品価格 ${fmtPrice(c.originalPrice)} より ${c.discountPercent}%引き：${esc(c.discountReason)}）</span>` : ''}</p>
+      <h2>💰 お支払い</h2>
+      <p>${esc(c.buyer)}さんが${esc(c.seller)}さんに、${c.paymentMethod || '現金'}で、${c.paymentDate || '未定'}までにお支払いします。</p>
+      <h2>🤝 受け渡し</h2>
+      <p>${esc(c.seller)}さんが${esc(c.buyer)}さんに、${c.handoverDate || '未定'}に${c.handoverPlace || '未定'}で、${c.handoverMethod || '対面'}で渡します。</p>
+      <h2>🙅 キャンセルについて</h2>
       <p>${esc(c.cancellationPolicy || '')}</p>
-      <h2>第5条（特約事項）</h2>
-      <p>${esc(c.memo || 'なし')}</p>
-      <p style="margin-top:20px">以上の内容に甲乙双方合意のうえ、本契約を締結する。</p>
+      <h2>✏️ そのほか</h2>
+      <p>${esc(c.memo || 'とくになし')}</p>
+      <p style="margin-top:20px">上記の内容に、おふたりで合意のうえサインしました。</p>
       <div class="sign-area">
-        <div class="sign-box">甲（出品者）${esc(c.seller)}<br><br>${esc(c.sellerSign || '')}</div>
-        <div class="sign-box">乙（購入者）${esc(c.buyer)}<br><br>${esc(c.buyerSign || '')}</div>
+        <div class="sign-box">出品者　${esc(c.seller)}<br><br>${esc(c.sellerSign || '')}</div>
+        <div class="sign-box">購入者　${esc(c.buyer)}<br><br>${esc(c.buyerSign || '')}</div>
       </div>
     </body></html>
   `);
