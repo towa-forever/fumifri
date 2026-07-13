@@ -1212,7 +1212,34 @@ function toggleProfileEdit(){
   ` : '';
 }
 
-let nameEditOpen = false;
+let paypayEditOpen = false;
+function togglePaypayEdit(){
+  paypayEditOpen = !paypayEditOpen;
+  const box = $('paypay-edit-box');
+  if(!box) return;
+  box.innerHTML = paypayEditOpen ? `
+    <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px;text-align:left">
+      <p style="font-size:12px;color:#999;margin-bottom:8px">契約書で「PayPay」を選んだ取引の際、相手に表示されます。PayPay IDやリンクを入力してください。</p>
+      <label class="lbl">PayPay ID（例: /taro_1234）</label>
+      <input id="paypay-id-input" class="inp" value="${esc(session.paypayId || '')}" placeholder="例: taro_1234">
+      <label class="lbl">現在のパスワード</label>
+      <input type="password" id="paypay-pw-current" class="inp">
+      <button class="btn-p" style="width:100%;margin-top:8px" onclick="submitPaypayIdChange()">保存する</button>
+    </div>
+  ` : '';
+}
+
+async function submitPaypayIdChange(){
+  const paypayId = $('paypay-id-input').value.trim();
+  const pass = $('paypay-pw-current').value;
+  if(!pass){ toast('パスワードを入力してください'); return; }
+  try{
+    const res = await api('PUT', '/profile', { name: session.name, pass, paypayId });
+    toast('PayPay IDを保存しました');
+    saveSession({ ...session, paypayId: res.paypayId });
+    togglePaypayEdit(); togglePaypayEdit();
+  }catch(e){ toast(e.message); }
+}
 function toggleNameEdit(){
   nameEditOpen = !nameEditOpen;
   const box = $('name-edit-box');
@@ -1349,12 +1376,14 @@ async function renderProfile(){
     </div>
     <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="onAvatarChange(this)">
     <div class="prof-name">${esc(session.name)}</div>
-    <div style="display:flex;gap:14px;justify-content:center">
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
       <button onclick="toggleNameEdit()" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer;margin-bottom:10px"><i class="ti ti-edit"></i> ニックネームを変更する</button>
       <button onclick="toggleProfileEdit()" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer;margin-bottom:10px"><i class="ti ti-lock"></i> パスワードを変更する</button>
+      <button onclick="togglePaypayEdit()" style="border:none;background:none;color:#999;font-size:12px;cursor:pointer;margin-bottom:10px"><i class="ti ti-wallet"></i> PayPay IDを設定する</button>
     </div>
     <div id="name-edit-box"></div>
     <div id="profile-edit-box"></div>
+    <div id="paypay-edit-box"></div>
     ${discountBanner}
     <a href="https://hurishi-chang.onrender.com" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;border:1.5px solid var(--cr);color:var(--crd);border-radius:12px;padding:12px;margin:4px 0 16px;font-size:14px;font-weight:700;text-decoration:none">
       <i class="ti ti-external-link"></i> フリー市場（なんでもフリマ）へ　同じアカウントでログインできます
@@ -1815,11 +1844,16 @@ async function openContractForm(productId, seller, buyer) {
   const p = products.find(x => x._id === productId);
   const price = p ? p.price : 0;
   let discountNote = '';
+  let sellerPaypayId = '';
   try {
     const d = await api('GET', `/profile/discount?name=${encodeURIComponent(buyer)}`);
     if (d.nextPurchaseDiscount > 0) {
       discountNote = `<div style="background:#fff8e1;border:1px solid #ffd54f;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">🎉 ${esc(buyer)}さんは前回PayPayでお支払いした特典で、支払い方法にかかわらず<b>${d.nextPurchaseDiscount}%引き</b>が適用されます！</div>`;
     }
+  } catch(e){}
+  try {
+    const sp = await api('GET', `/users/${encodeURIComponent(seller)}/public`);
+    sellerPaypayId = sp.paypayId || '';
   } catch(e){}
   c.innerHTML = `
     <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px">
@@ -1834,6 +1868,7 @@ async function openContractForm(productId, seller, buyer) {
       <option value="現金">現金${price >= 4000 ? '（4000円以上のため10%引き対象）' : ''}</option>
       <option value="PayPay">PayPay（今回のお支払いで次回10%引き特典）</option>
     </select>
+    <div id="ct-paypay-note"></div>
     <label class="lbl">支払日</label>
     <input id="ct-payment" class="inp" type="date">
     <label class="lbl">受け渡し日</label>
@@ -1846,6 +1881,19 @@ async function openContractForm(productId, seller, buyer) {
     <textarea id="ct-memo" class="inp" rows="3" placeholder="自由記入"></textarea>
     <button class="btn-p" style="width:100%;margin-top:8px" onclick="submitContract('${productId}','${seller}','${buyer}')">契約書を作成する</button>
   `;
+  const updatePaypayNote = () => {
+    const note = document.getElementById('ct-paypay-note');
+    const method = document.getElementById('ct-payment-method').value;
+    if (method === 'PayPay') {
+      note.innerHTML = sellerPaypayId
+        ? `<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px;margin:4px 0 8px;font-size:13px">💰 ${esc(seller)}さんのPayPay IDへ送金してください:<br><b style="font-size:15px">${esc(sellerPaypayId)}</b></div>`
+        : `<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:10px;margin:4px 0 8px;font-size:13px">⚠️ ${esc(seller)}さんはまだPayPay IDを登録していません。直接確認してください。</div>`;
+    } else {
+      note.innerHTML = '';
+    }
+  };
+  document.getElementById('ct-payment-method').addEventListener('change', updatePaypayNote);
+  updatePaypayNote();
   document.getElementById('contract-modal').classList.add('open');
 }
 

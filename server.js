@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
   bio: { type: String, default: '' },
   avatar: { type: String, default: null },
   nextPurchaseDiscount: { type: Number, default: 0 },
+  paypayId: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -80,7 +81,7 @@ app.post('/api/login', async (req, res) => {
   const { name, pass } = req.body;
   const user = await User.findOne({ name, pass });
   if (!user) return res.status(401).json({ error: 'ニックネームまたはパスワードが違います' });
-  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar, nextPurchaseDiscount: user.nextPurchaseDiscount });
+  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar, nextPurchaseDiscount: user.nextPurchaseDiscount, paypayId: user.paypayId });
 });
 
 // 次回購入割引の確認（プロフィール画面表示用）
@@ -94,16 +95,17 @@ app.get('/api/users/:name/public', async (req, res) => {
   const user = await User.findOne({ name: req.params.name });
   if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
   const items = await Product.find({ owner: user.name }).sort({ createdAt: -1 }).lean();
-  res.json({ name: user.name, emoji: user.emoji, avatar: user.avatar, createdAt: user.createdAt, items });
+  res.json({ name: user.name, emoji: user.emoji, avatar: user.avatar, createdAt: user.createdAt, paypayId: user.paypayId, items });
 });
 
 app.put('/api/profile', async (req, res) => {
-  const { name, pass, avatar } = req.body;
+  const { name, pass, avatar, paypayId } = req.body;
   const user = await User.findOne({ name, pass });
   if (!user) return res.status(401).json({ error: 'パスワードが正しくありません' });
   if (avatar !== undefined) user.avatar = avatar;
+  if (paypayId !== undefined) user.paypayId = paypayId;
   await user.save();
-  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
+  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar, paypayId: user.paypayId });
 });
 
 app.post('/api/profile/change-password', async (req, res) => {
