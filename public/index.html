@@ -160,6 +160,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
   <div class="tab" data-tab="hoshii">❤️ ほしい！</div>
   <div class="tab" data-tab="memories">💭 思い出</div>
   <div class="tab" data-tab="board">💬 みんなのつぶやき＆掲示板</div>
+  <div class="tab" data-tab="ai">🤖 文具AI</div>
   <div class="tab" data-tab="chat">💬 チャット</div>
   <div class="tab" data-tab="feedback">💡 意見箱</div>
   <div class="tab" data-tab="announcements">📢 お知らせ</div>
@@ -192,6 +193,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Hiragino Kaku Gothi
 <div id="tab-board" class="page">
   <div id="board-composer" style="padding:12px"></div>
   <div id="board-list" style="padding:0 12px"></div>
+</div>
+<div id="tab-ai" class="page">
+  <div id="ai-chat-list" style="padding:12px;display:flex;flex-direction:column;gap:10px"></div>
+  <div style="position:sticky;bottom:0;background:#e0f2fe;padding:10px 12px;display:flex;gap:8px">
+    <input id="ai-input" class="inp" style="margin:0;flex:1" placeholder="文房具について質問してみよう..." onkeydown="if(event.key==='Enter')sendAIQuestion()">
+    <button class="btn-p" style="flex:0 0 auto;padding:10px 16px" onclick="sendAIQuestion()">送信</button>
+  </div>
 </div>
 <div id="tab-chat" class="page">
   <div id="chat-messages" style="flex:1;overflow-y:auto;padding:12px"></div>
@@ -854,6 +862,41 @@ async function deleteBoardPost(id){
     toast('削除しました');
     renderBoard();
   }catch(e){ toast(e.message); }
+}
+
+// ---- 文具AI ----
+let aiChatHistory = [];
+function renderAIChat(){
+  const list = $('ai-chat-list');
+  if(!list) return;
+  if(!aiChatHistory.length){
+    list.innerHTML = '<div class="empty" style="padding:60px 20px"><i class="ti ti-robot"></i><p>文房具について何でも聞いてみよう！<br>（例: 「万年筆の選び方は？」「消しゴムの正しい使い方」）</p></div>';
+    return;
+  }
+  list.innerHTML = aiChatHistory.map(m => `
+    <div style="display:flex;${m.role==='user'?'justify-content:flex-end':''}">
+      <div style="max-width:80%;background:${m.role==='user'?'var(--cr)':'#fff'};color:${m.role==='user'?'#0c4a6e':'#333'};border:${m.role==='user'?'none':'1px solid #eee'};padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.6;white-space:pre-wrap">${m.role==='ai'?'🤖 ':''}${esc(m.text)}</div>
+    </div>
+  `).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+async function sendAIQuestion(){
+  const input = $('ai-input');
+  const q = input.value.trim();
+  if(!q) return;
+  if(!session){ openAuth(); return; }
+  aiChatHistory.push({role:'user', text:q});
+  input.value = '';
+  aiChatHistory.push({role:'ai', text:'考え中...', loading:true});
+  renderAIChat();
+  try{
+    const res = await api('POST', '/ai/stationery', { question: q });
+    aiChatHistory[aiChatHistory.length-1] = {role:'ai', text: res.answer};
+  }catch(e){
+    aiChatHistory[aiChatHistory.length-1] = {role:'ai', text: e.message || 'エラーが発生しました'};
+  }
+  renderAIChat();
 }
 
 // ---- フリーチャット ----
@@ -1669,6 +1712,7 @@ document.querySelectorAll('.tab').forEach(t => {
     if(t.dataset.tab==='profile') renderProfile();
     if(t.dataset.tab==='memories') renderMemories();
     if(t.dataset.tab==='board') renderBoard();
+    if(t.dataset.tab==='ai') renderAIChat();
     if(t.dataset.tab==='home') clearBadge();
     if(t.dataset.tab==='chat') renderChat();
     if(t.dataset.tab==='feedback') renderFeedback();
@@ -1959,27 +2003,13 @@ async function applyAICoupon(productId, productName, price) {
   const el = document.getElementById('coupon-result');
   el.innerHTML = '<span style="color:#999">AIがクーポンを生成中...</span>';
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 100,
-        messages: [{
-          role: 'user',
-          content: `文房具フリマアプリで「${productName}」が¥${price}で売られています。購入者へのお得なクーポン割引をJSON形式だけで答えてください。例: {"type":"percent","value":10,"reason":"初回購入特典"} typeはamount(円引き)かpercent(%OFF)、valueは数字のみ。`
-        }]
-      })
-    });
-    const data = await response.json();
-    const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const coupon = JSON.parse(text);
+    const coupon = await api('POST', '/ai/coupon', { productName, price });
     appliedCoupon = coupon;
     const disc = coupon.type === 'percent' ? Math.floor(price * coupon.value / 100) : coupon.value;
     const after = Math.max(0, price - disc);
     el.innerHTML = `<span style="color:green;font-weight:700">🤖 AIクーポン適用！${coupon.reason || ''} -${coupon.type==='percent'?coupon.value+'%':coupon.value+'円'} → ¥${after.toLocaleString()}</span>`;
   } catch(e) {
-    el.innerHTML = '<span style="color:red">AIクーポンの生成に失敗しました</span>';
+    el.innerHTML = `<span style="color:red">${esc(e.message || 'AIクーポンの生成に失敗しました')}</span>`;
   }
 }
 
