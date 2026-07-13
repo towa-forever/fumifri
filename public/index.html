@@ -1290,6 +1290,15 @@ async function renderProfile(){
     }catch(e){}
   }
 
+  // 次回購入割引の確認
+  let discountBanner = '';
+  try{
+    const d = await api('GET', `/profile/discount?name=${encodeURIComponent(session.name)}`);
+    if(d.nextPurchaseDiscount > 0){
+      discountBanner = `<div style="background:#fff8e1;border:1px solid #ffd54f;border-radius:12px;padding:12px;margin:4px 0 16px;font-size:13px;text-align:center">🎉 前回PayPayでお支払いいただいた特典で、次回のお買い物が<b>${d.nextPurchaseDiscount}%引き</b>になります！</div>`;
+    }
+  }catch(e){}
+
   c.innerHTML = `<div class="prof-page">
     <div class="prof-avatar" style="cursor:pointer;position:relative;overflow:hidden" onclick="$('avatar-file-input').click()">
       ${session.avatar ? `<img src="${session.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : session.emoji}
@@ -1303,6 +1312,7 @@ async function renderProfile(){
     </div>
     <div id="name-edit-box"></div>
     <div id="profile-edit-box"></div>
+    ${discountBanner}
     <a href="https://hurishi-chang.onrender.com" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;border:1.5px solid var(--cr);color:var(--crd);border-radius:12px;padding:12px;margin:4px 0 16px;font-size:14px;font-weight:700;text-decoration:none">
       <i class="ti ti-external-link"></i> フリー市場（なんでもフリマ）へ　同じアカウントでログインできます
     </a>
@@ -1759,6 +1769,14 @@ async function confirmSelectBuyer(productId, buyer) {
 async function openContractForm(productId, seller, buyer) {
   const c = document.getElementById('contract-content');
   const p = products.find(x => x._id === productId);
+  const price = p ? p.price : 0;
+  let discountNote = '';
+  try {
+    const d = await api('GET', `/profile/discount?name=${encodeURIComponent(buyer)}`);
+    if (d.nextPurchaseDiscount > 0) {
+      discountNote = `<div style="background:#fff8e1;border:1px solid #ffd54f;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">🎉 ${esc(buyer)}さんは前回PayPayでお支払いした特典で、支払い方法にかかわらず<b>${d.nextPurchaseDiscount}%引き</b>が適用されます！</div>`;
+    }
+  } catch(e){}
   c.innerHTML = `
     <div style="background:#fafafa;border-radius:10px;padding:12px;margin-bottom:14px">
       <p style="font-size:13px;color:#666">品物</p>
@@ -1766,6 +1784,12 @@ async function openContractForm(productId, seller, buyer) {
       <p style="font-size:13px;color:var(--crd);font-weight:700">${p ? fmtPrice(p.price) : ''}</p>
     </div>
     <p style="font-size:13px;color:#666;margin-bottom:4px">出品者: <b>${seller}</b>　購入者: <b>${buyer}</b></p>
+    ${discountNote}
+    <label class="lbl">支払い方法</label>
+    <select id="ct-payment-method" class="inp">
+      <option value="現金">現金${price >= 4000 ? '（4000円以上のため10%引き対象）' : ''}</option>
+      <option value="PayPay">PayPay（今回のお支払いで次回10%引き特典）</option>
+    </select>
     <label class="lbl">支払日</label>
     <input id="ct-payment" class="inp" type="date">
     <label class="lbl">受け渡し日</label>
@@ -1783,7 +1807,7 @@ async function openContractForm(productId, seller, buyer) {
 
 async function submitContract(productId, seller, buyer) {
   const paymentDate = document.getElementById('ct-payment').value;
-  const paymentMethod = '現金';
+  const paymentMethod = document.getElementById('ct-payment-method').value;
   const handoverDate = document.getElementById('ct-handover-date').value;
   const handoverPlace = document.getElementById('ct-handover-place').value;
   const handoverMethod = '対面';
@@ -1811,6 +1835,7 @@ async function openContractSign(contractId) {
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第1条（売買物件）</p>
       <p>品物: <b>${esc(c.productName)}</b>　売買代金: <b>${fmtPrice(c.price)}</b></p>
+      ${c.discountPercent > 0 ? `<p style="font-size:12px;color:#e04060">（商品価格 ${fmtPrice(c.originalPrice)} より ${c.discountPercent}%引き：${esc(c.discountReason)}）</p>` : ''}
 
       <p style="font-weight:700;border-bottom:1px solid #333;margin-top:12px">第2条（支払い）</p>
       <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
@@ -1861,7 +1886,7 @@ async function printContract(contractId) {
       <div class="meta">契約番号: ${c.contractNumber || '-'}　作成日: ${createdDate}</div>
       <p>出品者（甲）「<b>${esc(c.seller)}</b>」と購入者（乙）「<b>${esc(c.buyer)}</b>」は、以下の通り物品の売買契約を締結する。</p>
       <h2>第1条（売買物件）</h2>
-      <p>品物: ${esc(c.productName)}<br>売買代金: ${fmtPrice(c.price)}</p>
+      <p>品物: ${esc(c.productName)}<br>売買代金: ${fmtPrice(c.price)}${c.discountPercent > 0 ? `<br><span style="font-size:12px;color:#e04060">（商品価格 ${fmtPrice(c.originalPrice)} より ${c.discountPercent}%引き：${esc(c.discountReason)}）</span>` : ''}</p>
       <h2>第2条（支払い）</h2>
       <p>乙は甲に対し、${c.paymentMethod || '現金'}にて、${c.paymentDate || '未定'}までに売買代金を支払うものとする。</p>
       <h2>第3条（受け渡し）</h2>

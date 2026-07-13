@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema({
   emoji: { type: String, default: '✏️' },
   bio: { type: String, default: '' },
   avatar: { type: String, default: null },
+  nextPurchaseDiscount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -79,7 +80,14 @@ app.post('/api/login', async (req, res) => {
   const { name, pass } = req.body;
   const user = await User.findOne({ name, pass });
   if (!user) return res.status(401).json({ error: 'ニックネームまたはパスワードが違います' });
-  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar });
+  res.json({ name: user.name, emoji: user.emoji, bio: user.bio, avatar: user.avatar, nextPurchaseDiscount: user.nextPurchaseDiscount });
+});
+
+// 次回購入割引の確認（プロフィール画面表示用）
+app.get('/api/profile/discount', async (req, res) => {
+  const user = await User.findOne({ name: req.query.name });
+  if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
+  res.json({ nextPurchaseDiscount: user.nextPurchaseDiscount });
 });
 
 app.get('/api/users/:name/public', async (req, res) => {
@@ -663,6 +671,9 @@ const contractSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String, required: true },
   price: { type: Number, required: true },
+  originalPrice: { type: Number, default: 0 },
+  discountPercent: { type: Number, default: 0 },
+  discountReason: { type: String, default: '' },
   seller: { type: String, required: true },
   buyer: { type: String, default: '' },
   paymentDate: { type: String, default: '' },
@@ -821,8 +832,29 @@ app.post('/api/contracts', async (req, res) => {
   const { productId, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo } = req.body;
   const p = await Product.findById(productId);
   if (!p) return res.status(404).json({ error: '商品が見つかりません' });
+
+  const buyerUser = await User.findOne({ name: buyer });
+  const originalPrice = p.price;
+  let discountPercent = 0;
+  let discountReason = '';
+  const hadCredit = buyerUser && buyerUser.nextPurchaseDiscount > 0;
+  if (hadCredit) {
+    discountPercent = buyerUser.nextPurchaseDiscount;
+    discountReason = '前回PayPayお支払い特典（次回10%OFF）';
+  } else if (paymentMethod === '現金' && originalPrice >= 4000) {
+    discountPercent = 10;
+    discountReason = '現金4000円以上のお買い上げ特典（10%OFF）';
+  }
+  const finalPrice = Math.max(0, Math.round(originalPrice * (100 - discountPercent) / 100));
+
+  if (buyerUser) {
+    if (hadCredit) buyerUser.nextPurchaseDiscount = 0;
+    if (paymentMethod === 'PayPay') buyerUser.nextPurchaseDiscount = 10;
+    await buyerUser.save();
+  }
+
   const contractNumber = 'FF-' + Date.now().toString(36).toUpperCase();
-  const contract = await Contract.create({ contractNumber, productId, productName: p.name, price: p.price, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo });
+  const contract = await Contract.create({ contractNumber, productId, productName: p.name, price: finalPrice, originalPrice, discountPercent, discountReason, seller, buyer, paymentDate, paymentMethod, handoverDate, handoverPlace, handoverMethod, cancellationPolicy, memo });
   await notify(buyer, 'contract', `「${p.name}」の契約書が作成されました。サインしてください`, p._id);
   res.json(contract);
 });
