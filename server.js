@@ -1035,7 +1035,8 @@ app.post('/api/ai/stationery', async (req, res) => {
     );
     res.json({ answer });
   } catch (e) {
-    res.status(500).json({ error: e.notConfigured ? 'AI機能がまだ使えるようになっていません（管理者の設定待ちです）' : 'AIの呼び出しに失敗しました' });
+    console.error('AI stationery error:', e);
+    res.status(500).json({ error: e.notConfigured ? 'AI機能がまだ使えるようになっていません（管理者の設定待ちです）' : `AIの呼び出しに失敗しました（${e.message}）` });
   }
 });
 
@@ -1053,7 +1054,8 @@ app.post('/api/ai/coupon', async (req, res) => {
     const coupon = JSON.parse(clean);
     res.json(coupon);
   } catch (e) {
-    res.status(500).json({ error: e.notConfigured ? 'AI機能がまだ使えるようになっていません（管理者の設定待ちです）' : 'AIクーポンの生成に失敗しました' });
+    console.error('AI coupon error:', e);
+    res.status(500).json({ error: e.notConfigured ? 'AI機能がまだ使えるようになっていません（管理者の設定待ちです）' : `AIクーポンの生成に失敗しました（${e.message}）` });
   }
 });
 
