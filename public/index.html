@@ -2013,7 +2013,8 @@ async function openCouponManager() {
   content.innerHTML = `
     <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">新しいクーポンを発行</h3>
     <select id="new-coupon-product" class="inp" style="margin-bottom:6px">
-      <option value="">商品を選んでください</option>
+      <option value="">対象を選んでください</option>
+      <option value="ALL">🌟 全商品（今出品しているものすべて）</option>
       ${products.filter(p=>p.owner===loginUser&&!p.sold).map(p=>`<option value="${p._id}">${p.emoji||'📦'} ${esc(p.name)} ${fmtPrice(p.price)}</option>`).join('')}
     </select>
     <input id="new-coupon-code" class="inp" placeholder="クーポンコード（例: SALE10）">
@@ -2036,26 +2037,32 @@ async function openCouponManager() {
     <hr style="margin:14px 0">
     <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">発行済みクーポン</h3>
     ${coupons.length === 0 ? '<p style="color:#999;font-size:13px">まだクーポンはありません</p>' :
-      coupons.map(c => `
+      coupons.map(c => {
+        const targetProduct = c.productId ? products.find(p => p._id === c.productId) : null;
+        const targetLabel = c.productId ? (targetProduct ? `${targetProduct.emoji||'📦'} ${esc(targetProduct.name)}` : '（削除済みの商品）') : '🌟 全商品';
+        return `
         <div style="background:#fafafa;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
           <div>
             <p style="font-weight:700;font-size:14px">🎟️ ${c.code}</p>
+            <p style="font-size:12px;color:#999">対象: ${targetLabel}</p>
             <p style="font-size:12px;color:#999">${c.type==='percent'?c.value+'%OFF':c.value+'円引き'} ${c.expiry?'期限:'+c.expiry:''}</p>
             <p style="font-size:12px;color:#999">使用済み: ${c.usedBy.length}人</p>
           </div>
           <button style="background:none;border:1px solid #eee;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:#e04060" onclick="deleteCoupon('${c._id}')">削除</button>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
   `;
   document.getElementById('coupon-manager-modal').classList.add('open');
 }
 
 async function issueCoupon() {
-  const productId = document.getElementById('new-coupon-product').value;
+  const productIdRaw = document.getElementById('new-coupon-product').value;
+  const productId = productIdRaw === 'ALL' ? null : productIdRaw;
   const code = document.getElementById('new-coupon-code').value.trim();
   const type = document.getElementById('new-coupon-type').value;
   const value = parseInt(document.getElementById('new-coupon-value').value);
   const expiry = document.getElementById('new-coupon-expiry').value;
-  if (!productId) return toast('商品を選んでください');
+  if (!productIdRaw) return toast('対象を選んでください');
   if (!code || !value) return toast('コードと割引額を入力してください');
   const res = await fetch('/api/coupons', {
     method: 'POST',

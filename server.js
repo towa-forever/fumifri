@@ -920,7 +920,10 @@ app.post('/api/coupons', async (req, res) => {
 // クーポン確認・適用
 app.get('/api/coupons/auto', async (req, res) => {
   const { productId, user } = req.query;
-  const coupon = await Coupon.findOne({ productId, requireCode: false });
+  const p = await Product.findById(productId);
+  if (!p) return res.json({});
+  let coupon = await Coupon.findOne({ productId, requireCode: false });
+  if (!coupon) coupon = await Coupon.findOne({ productId: null, owner: p.owner, requireCode: false });
   if (!coupon) return res.json({});
   if (coupon.expiry && new Date() > new Date(coupon.expiry)) return res.json({});
   if (coupon.usedBy.includes(user)) return res.json({});
@@ -936,6 +939,8 @@ app.post('/api/coupons/apply', async (req, res) => {
   if (coupon.expiry && new Date() > new Date(coupon.expiry)) return res.status(400).json({ error: 'クーポンの有効期限が切れています' });
   if (coupon.usedBy.includes(user)) return res.status(400).json({ error: 'このクーポンはすでに使用済みです' });
   if (coupon.productId && coupon.productId.toString() !== productId) return res.status(400).json({ error: 'この商品には使えないクーポンです' });
+  const p = await Product.findById(productId);
+  if (!p || p.owner !== coupon.owner) return res.status(400).json({ error: 'この商品には使えないクーポンです' });
   coupon.usedBy.push(user);
   await coupon.save();
   res.json({ type: coupon.type, value: coupon.value });
